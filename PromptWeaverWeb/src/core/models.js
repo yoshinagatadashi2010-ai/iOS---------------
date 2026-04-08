@@ -1,4 +1,4 @@
-export const PROJECT_TYPES = Object.freeze({
+﻿export const PROJECT_TYPES = Object.freeze({
   IMAGE: "image",
   VIDEO: "video",
   AUDIO: "audio",
@@ -10,7 +10,7 @@ export const PROJECT_TYPE_LABELS = Object.freeze({
   [PROJECT_TYPES.IMAGE]: "画像",
   [PROJECT_TYPES.VIDEO]: "動画",
   [PROJECT_TYPES.AUDIO]: "音声",
-  [PROJECT_TYPES.STORYBOARD]: "絵コンテ",
+  [PROJECT_TYPES.STORYBOARD]: "ストーリーボード",
   [PROJECT_TYPES.MULTIMODAL]: "マルチモーダル"
 });
 
@@ -18,7 +18,7 @@ export const FALLBACK_TITLES = Object.freeze({
   [PROJECT_TYPES.IMAGE]: "無題の画像プロンプト",
   [PROJECT_TYPES.VIDEO]: "無題の動画プロンプト",
   [PROJECT_TYPES.AUDIO]: "無題の音声プロンプト",
-  [PROJECT_TYPES.STORYBOARD]: "無題の絵コンテ",
+  [PROJECT_TYPES.STORYBOARD]: "無題のストーリーボード",
   [PROJECT_TYPES.MULTIMODAL]: "無題のマルチモーダルプロンプト"
 });
 
@@ -63,8 +63,8 @@ export const SORT_OPTIONS = Object.freeze({
 });
 
 export const SORT_OPTION_LABELS = Object.freeze({
-  [SORT_OPTIONS.UPDATED_DESCENDING]: "更新日時",
-  [SORT_OPTIONS.TITLE_ASCENDING]: "タイトル",
+  [SORT_OPTIONS.UPDATED_DESCENDING]: "更新日順",
+  [SORT_OPTIONS.TITLE_ASCENDING]: "タイトル順",
   [SORT_OPTIONS.FAVORITE_FIRST]: "お気に入り優先"
 });
 
@@ -76,6 +76,31 @@ export const DEFAULT_SETTINGS = Object.freeze({
 
 function nowIsoString() {
   return new Date().toISOString();
+}
+
+function createId() {
+  if (globalThis.crypto?.randomUUID) {
+    return globalThis.crypto.randomUUID();
+  }
+
+  if (globalThis.crypto?.getRandomValues) {
+    const bytes = new Uint8Array(16);
+    globalThis.crypto.getRandomValues(bytes);
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0"));
+    return `${hex.slice(0, 4).join("")}-${hex.slice(4, 6).join("")}-${hex.slice(6, 8).join("")}-${hex.slice(8, 10).join("")}-${hex.slice(10, 16).join("")}`;
+  }
+
+  return `fallback-${Date.now()}-${Math.random().toString(16).slice(2)}-${Math.random().toString(16).slice(2)}`;
+}
+
+function cloneValue(value) {
+  if (typeof structuredClone === "function") {
+    return structuredClone(value);
+  }
+
+  return JSON.parse(JSON.stringify(value));
 }
 
 function createEmptyImageDetail() {
@@ -95,7 +120,7 @@ function createEmptyImageDetail() {
 
 function createEmptyVideoScene(orderIndex) {
   return {
-    id: crypto.randomUUID(),
+    id: createId(),
     orderIndex,
     title: "",
     durationSeconds: 5,
@@ -122,14 +147,11 @@ function createEmptyVideoDetail() {
   };
 }
 
-export function createEmptyProject(
-  projectType,
-  language = DEFAULT_SETTINGS.defaultLanguage
-) {
+export function createEmptyProject(projectType, language = DEFAULT_SETTINGS.defaultLanguage) {
   const timestamp = nowIsoString();
 
   return {
-    id: crypto.randomUUID(),
+    id: createId(),
     projectType,
     title: "",
     summary: "",
@@ -140,21 +162,19 @@ export function createEmptyProject(
     archived: false,
     language,
     outputFormat: OUTPUT_FORMATS.MARKDOWN,
-    imageDetail:
-      projectType === PROJECT_TYPES.IMAGE ? createEmptyImageDetail() : null,
-    videoDetail:
-      projectType === PROJECT_TYPES.VIDEO ? createEmptyVideoDetail() : null
+    imageDetail: projectType === PROJECT_TYPES.IMAGE ? createEmptyImageDetail() : null,
+    videoDetail: projectType === PROJECT_TYPES.VIDEO ? createEmptyVideoDetail() : null
   };
 }
 
 export function cloneProject(project) {
-  return structuredClone(project);
+  return cloneValue(project);
 }
 
 export function normalizeTags(value) {
   const source = Array.isArray(value) ? value.join(",") : `${value ?? ""}`;
   const parts = source
-    .split(/[,、\n]/)
+    .split(/[、,\n]/)
     .map((item) => item.trim())
     .filter(Boolean);
 
@@ -179,8 +199,8 @@ export function slugify(value, fallback = "project") {
 }
 
 export function getDisplayTitle(project) {
-  const title = project?.title?.trim();
-  return title || FALLBACK_TITLES[project.projectType] || "無題のプロジェクト";
+  const title = `${project?.title ?? ""}`.trim();
+  return title || FALLBACK_TITLES[project?.projectType] || "無題のプロジェクト";
 }
 
 export function getFilenameBase(project) {
@@ -189,19 +209,20 @@ export function getFilenameBase(project) {
 
 export function normalizeVideoScene(scene, orderIndex) {
   return {
+    ...createEmptyVideoScene(orderIndex),
     ...scene,
-    id: scene.id || crypto.randomUUID(),
+    id: scene?.id || createId(),
     orderIndex,
-    durationSeconds: Math.max(1, Number(scene.durationSeconds) || 1),
-    title: `${scene.title ?? ""}`,
-    content: `${scene.content ?? ""}`,
-    cameraWork: `${scene.cameraWork ?? ""}`,
-    subjectMotion: `${scene.subjectMotion ?? ""}`,
-    background: `${scene.background ?? ""}`,
-    mood: `${scene.mood ?? ""}`,
-    soundNote: `${scene.soundNote ?? ""}`,
-    transitionNote: `${scene.transitionNote ?? ""}`,
-    notes: `${scene.notes ?? ""}`
+    durationSeconds: Math.max(1, Number(scene?.durationSeconds) || 1),
+    title: `${scene?.title ?? ""}`,
+    content: `${scene?.content ?? ""}`,
+    cameraWork: `${scene?.cameraWork ?? ""}`,
+    subjectMotion: `${scene?.subjectMotion ?? ""}`,
+    background: `${scene?.background ?? ""}`,
+    mood: `${scene?.mood ?? ""}`,
+    soundNote: `${scene?.soundNote ?? ""}`,
+    transitionNote: `${scene?.transitionNote ?? ""}`,
+    notes: `${scene?.notes ?? ""}`
   };
 }
 
@@ -216,14 +237,12 @@ export function normalizeProject(project) {
   normalized.updatedAt = updatedAt;
   normalized.favorite = Boolean(normalized.favorite);
   normalized.archived = Boolean(normalized.archived);
-  normalized.language =
-    normalized.language in LANGUAGE_LABELS
-      ? normalized.language
-      : DEFAULT_SETTINGS.defaultLanguage;
-  normalized.outputFormat =
-    normalized.outputFormat in OUTPUT_FORMAT_LABELS
-      ? normalized.outputFormat
-      : OUTPUT_FORMATS.MARKDOWN;
+  normalized.language = normalized.language in LANGUAGE_LABELS
+    ? normalized.language
+    : DEFAULT_SETTINGS.defaultLanguage;
+  normalized.outputFormat = normalized.outputFormat in OUTPUT_FORMAT_LABELS
+    ? normalized.outputFormat
+    : OUTPUT_FORMATS.MARKDOWN;
 
   if (normalized.projectType === PROJECT_TYPES.IMAGE) {
     normalized.imageDetail = {
@@ -231,6 +250,7 @@ export function normalizeProject(project) {
       ...(normalized.imageDetail ?? {})
     };
     normalized.videoDetail = null;
+    return normalized;
   }
 
   if (normalized.projectType === PROJECT_TYPES.VIDEO) {
@@ -241,11 +261,20 @@ export function normalizeProject(project) {
     normalized.videoDetail = {
       ...createEmptyVideoDetail(),
       ...(normalized.videoDetail ?? {}),
-      scenes
+      scenes,
+      overallConcept: `${normalized.videoDetail?.overallConcept ?? ""}`,
+      visualStyle: `${normalized.videoDetail?.visualStyle ?? ""}`,
+      pacing: `${normalized.videoDetail?.pacing ?? ""}`,
+      aspectRatio: `${normalized.videoDetail?.aspectRatio ?? ""}`,
+      negativePrompt: `${normalized.videoDetail?.negativePrompt ?? ""}`,
+      notes: `${normalized.videoDetail?.notes ?? ""}`
     };
     normalized.imageDetail = null;
+    return normalized;
   }
 
+  normalized.imageDetail = null;
+  normalized.videoDetail = null;
   return normalized;
 }
 
@@ -253,24 +282,21 @@ export function duplicateProject(sourceProject) {
   const duplicated = normalizeProject(sourceProject);
   const timestamp = nowIsoString();
 
-  duplicated.id = crypto.randomUUID();
+  duplicated.id = createId();
   duplicated.createdAt = timestamp;
   duplicated.updatedAt = timestamp;
   duplicated.favorite = false;
-  duplicated.title = getDisplayTitle(sourceProject).endsWith("のコピー")
-    ? getDisplayTitle(sourceProject)
-    : `${getDisplayTitle(sourceProject)} のコピー`;
+  duplicated.title = `${getDisplayTitle(sourceProject)} のコピー`;
 
   if (duplicated.videoDetail?.scenes?.length) {
-    duplicated.videoDetail.scenes = duplicated.videoDetail.scenes.map(
-      (scene, index) =>
-        normalizeVideoScene(
-          {
-            ...scene,
-            id: crypto.randomUUID()
-          },
-          index
-        )
+    duplicated.videoDetail.scenes = duplicated.videoDetail.scenes.map((scene, index) =>
+      normalizeVideoScene(
+        {
+          ...scene,
+          id: createId()
+        },
+        index
+      )
     );
   }
 
@@ -317,10 +343,8 @@ export function sortProjects(projects, sortOption) {
       return getDisplayTitle(left).localeCompare(getDisplayTitle(right), "ja");
     }
 
-    if (sortOption === SORT_OPTIONS.FAVORITE_FIRST) {
-      if (left.favorite !== right.favorite) {
-        return left.favorite ? -1 : 1;
-      }
+    if (sortOption === SORT_OPTIONS.FAVORITE_FIRST && left.favorite !== right.favorite) {
+      return left.favorite ? -1 : 1;
     }
 
     return new Date(right.updatedAt) - new Date(left.updatedAt);
@@ -361,74 +385,72 @@ export function formatSaveStatus(saveStatus) {
 export function createSampleProjects() {
   const imageProject = createEmptyProject(PROJECT_TYPES.IMAGE);
   imageProject.title = "夕景ポートレート";
-  imageProject.summary =
-    "駅前の夕景で自然光と街灯を混ぜた、シネマティックな人物ポートレート用の下書きです。";
+  imageProject.summary = "駅前の夕景で自然光と街灯を混ぜた、シネマティックな人物ポートレート用の下書きです。";
   imageProject.tags = ["portrait", "sunset", "cinematic"];
   imageProject.favorite = true;
   imageProject.imageDetail = {
-    subject: "駅前に立つ女性モデル",
+    subject: "夕景の街に立つ人物ポートレート",
     composition: "バストアップ、ややローアングル",
-    style: "シネマティックで繊細",
-    lighting: "夕方の逆光と街灯の補助光",
+    style: "シネマティックで自然な質感",
+    lighting: "夕暮れの残光と街灯のミックス光",
     camera: "85mm lens, shallow depth of field",
     colorTone: "オレンジとティール",
-    mood: "静かで感傷的",
-    environment: "都市の夕景、濡れた歩道",
-    negativePrompt: "低解像度、破綻した手、不自然な肌",
-    notes: "広告ビジュアルにも使える上品さを保つ"
+    mood: "静かで印象的",
+    environment: "駅前の歩道と遠景のネオン",
+    negativePrompt: "過度なノイズ、崩れた手、極端な歪み",
+    notes: "表情は落ち着いて、視線は少し外す"
   };
 
   const videoProject = createEmptyProject(PROJECT_TYPES.VIDEO);
   videoProject.title = "未来都市の朝";
-  videoProject.summary =
-    "縦型の短尺動画で、静かな街が少しずつ目覚めていく流れを描きます。";
+  videoProject.summary = "縦型の短尺動画で、静かな街が少しずつ目覚めていく流れを描きます。";
   videoProject.tags = ["future", "city", "shortfilm"];
   videoProject.videoDetail = {
-    overallConcept: "近未来都市の朝を3シーンで描く",
-    visualStyle: "クリーンなSF、フォトリアル",
-    pacing: "ゆっくり始まり後半でややテンポアップ",
+    overallConcept: "未来都市の朝を3シーンで描く",
+    visualStyle: "クリーンなSF、柔らかい光",
+    pacing: "ゆっくり始まり後半で少しテンポアップ",
     aspectRatio: "9:16",
-    negativePrompt: "ちらつき、過剰なモーションブラー、破綻した背景",
-    notes: "SNS向けの世界観紹介動画を想定",
+    negativePrompt: "ちらつき、不自然なモーションブラー、崩れた建物",
+    notes: "SNS向けの縦動画を想定",
     scenes: [
       normalizeVideoScene(
         {
           ...createEmptyVideoScene(0),
-          title: "夜明け前の街",
+          title: "未明の街",
           durationSeconds: 4,
-          content: "静かな高層ビル群を遠景で見せる",
+          content: "青みの残る街並みを広く見せる",
           cameraWork: "ゆっくり前進するドローンショット",
-          subjectMotion: "小型ビークルがわずかに横切る",
-          background: "ガラス張りのビルと薄い霧",
-          mood: "静謐",
-          soundNote: "低い環境音のみ",
+          subjectMotion: "看板の光が穏やかに点滅する",
+          background: "高層ビルと薄い霧",
+          mood: "静寂",
+          soundNote: "遠くの環境音のみ",
           transitionNote: "フェードで次へ",
-          notes: "空のグラデーションを丁寧に"
+          notes: "最初は暗めに"
         },
         0
       ),
       normalizeVideoScene(
         {
           ...createEmptyVideoScene(1),
-          title: "通りに光が差す",
+          title: "駅前が動き出す",
           durationSeconds: 5,
-          content: "メインストリートに朝日が差し込む",
-          cameraWork: "水平移動",
-          subjectMotion: "通勤者の流れが増えていく",
-          background: "ホログラム看板と反射する路面",
-          mood: "希望",
-          soundNote: "軽いシンセパッド",
-          transitionNote: "光のフレアでつなぐ",
-          notes: "人の密度は控えめ"
+          content: "人の流れと車両の光が少しずつ増える",
+          cameraWork: "横移動",
+          subjectMotion: "通行人が自然に行き交う",
+          background: "駅前ロータリーと朝の広告",
+          mood: "始動",
+          soundNote: "小さな街のざわめき",
+          transitionNote: "カット",
+          notes: "中盤で色温度を少し上げる"
         },
         1
       )
     ]
   };
 
-  return [normalizeProject(videoProject), normalizeProject(imageProject)];
+  return [videoProject, imageProject].map(normalizeProject);
 }
 
 export function createVideoScene(orderIndex) {
-  return createEmptyVideoScene(orderIndex);
+  return normalizeVideoScene(createEmptyVideoScene(orderIndex), orderIndex);
 }
