@@ -1,4 +1,4 @@
-﻿export const PROJECT_TYPES = Object.freeze({
+export const PROJECT_TYPES = Object.freeze({
   IMAGE: "image",
   VIDEO: "video",
   AUDIO: "audio",
@@ -70,7 +70,8 @@ export const SORT_OPTION_LABELS = Object.freeze({
 
 export const DEFAULT_SETTINGS = Object.freeze({
   defaultLanguage: LANGUAGES.JAPANESE,
-  reflectionExportEnabled: false
+  reflectionExportEnabled: false,
+  shareUrl: ""
 });
 
 function nowIsoString() {

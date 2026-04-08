@@ -1,4 +1,4 @@
-﻿import {
+import {
   getDisplayTitle,
   getFilenameBase,
   normalizeProject
@@ -12,6 +12,34 @@ function downloadBlob(filename, blob) {
   anchor.download = filename;
   anchor.click();
   setTimeout(() => URL.revokeObjectURL(url), 500);
+}
+
+export function normalizeShareUrl(value) {
+  return `${value ?? ""}`.trim();
+}
+
+export function isShareableHttpUrl(value) {
+  const normalized = normalizeShareUrl(value);
+  if (!normalized) {
+    return false;
+  }
+
+  try {
+    const url = new URL(normalized);
+    return url.protocol === "https:" || url.protocol === "http:";
+  } catch {
+    return false;
+  }
+}
+
+export function buildQrCodeImageUrl(value) {
+  const normalized = normalizeShareUrl(value);
+  if (!isShareableHttpUrl(normalized)) {
+    return "";
+  }
+
+  // TODO: �O���ˑ������邽�߁A�����̓��[�J�������֒u��������B
+  return `https://api.qrserver.com/v1/create-qr-code/?size=320x320&format=svg&data=${encodeURIComponent(normalized)}`;
 }
 
 export async function copyText(text) {
@@ -42,6 +70,18 @@ export function exportJson(project) {
   const filename = `${getFilenameBase(normalized)}.json`;
   const payload = JSON.stringify(normalized, null, 2);
   downloadBlob(filename, new Blob([payload], { type: "application/json;charset=utf-8" }));
+}
+
+export async function shareAppUrl(url, title = "PromptWeaver") {
+  if (!navigator.share || !isShareableHttpUrl(url)) {
+    return false;
+  }
+
+  await navigator.share({
+    title,
+    url: normalizeShareUrl(url)
+  });
+  return true;
 }
 
 export async function shareMarkdown(project) {

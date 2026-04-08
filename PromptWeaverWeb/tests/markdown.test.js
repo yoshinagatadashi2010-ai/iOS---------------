@@ -1,7 +1,12 @@
-﻿import test from "node:test";
+import test from "node:test";
 import assert from "node:assert/strict";
 
-import { LANGUAGES, PROJECT_TYPES, createEmptyProject } from "../src/core/models.js";
+import {
+  FALLBACK_TITLES,
+  LANGUAGES,
+  PROJECT_TYPES,
+  createEmptyProject
+} from "../src/core/models.js";
 import { buildImageMarkdown, buildVideoMarkdown } from "../src/core/markdown.js";
 
 test("image markdown renders structured sections", () => {
@@ -85,5 +90,7 @@ test("duration formatting uses seconds suffix", () => {
 test("empty image title falls back to default title", () => {
   const project = createEmptyProject(PROJECT_TYPES.IMAGE, LANGUAGES.JAPANESE);
   const markdown = buildImageMarkdown(project);
-  assert.match(markdown, /## Title\n無題の画像プロンプト/);
+  const expected = `## Title\n${FALLBACK_TITLES[PROJECT_TYPES.IMAGE]}`;
+
+  assert.equal(markdown.includes(expected), true);
 });

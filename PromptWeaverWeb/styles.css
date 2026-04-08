@@ -435,6 +435,40 @@ a {
   line-height: 1.55;
 }
 
+.qr-share {
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+  text-align: center;
+}
+
+.qr-share__image-wrap {
+  width: min(280px, 100%);
+  padding: 14px;
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius);
+  background: #ffffff;
+}
+
+.qr-share__image {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: contain;
+}
+
+.qr-share__url {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius);
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  word-break: break-all;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace;
+  font-size: 0.9rem;
+}
+
 .empty-state {
   padding: 24px 18px;
   border: 1px dashed #c8d5e4;
@@ -549,4 +583,5 @@ a {
     border-radius: 0;
   }
 }
+
 
