@@ -1,0 +1,9 @@
+﻿{
+  "name": "promptweaver-web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "serve": "python -m http.server 4173",
+    "test": "node --test"
+  }
+}

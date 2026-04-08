@@ -1,0 +1,20 @@
+﻿{
+  "name": "PromptWeaver",
+  "short_name": "PromptWeaver",
+  "description": "画像生成と動画生成のための構造化プロンプト作成アプリ",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f7fb",
+  "theme_color": "#1f6feb",
+  "lang": "ja",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "./icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
