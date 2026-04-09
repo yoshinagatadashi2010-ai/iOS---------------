@@ -1,95 +1,69 @@
 # PromptWeaver Web
 
-PromptWeaver �� iPhone / Android / Windows / Mac �̃u���E�U�Ŏg����悤�ɂ��� PWA �łł��B
+PromptWeaver の Web / PWA 版です。iPhone、Android、Windows、Mac のブラウザで使えます。
 
-## �ł��邱��
+## できること
 
-- �摜 / ����v�����v�g�̍쐬�ƕҏW
-- Markdown �v���r���[
-- Markdown / JSON �̏����o��
-- �R�s�[ / ���L
-- �u���E�U��ۑ�
-- �z�[����ʒǉ� / �I�t���C���N��
-- ���L�p URL �� QR �R�[�h�\��
+- 画像プロンプト / 動画プロンプトの作成と編集
+- Markdown プレビュー
+- Markdown / JSON の書き出し
+- コピー / 共有
+- ブラウザ内保存
+- iPhone のホーム画面追加
+- GitHub Pages での公開
 
-## ���[�J���N��
+## ローカルで開く
 
-`PromptWeaverWeb` �t�H���_�Ŏ��s���܂��B
+`PromptWeaverWeb` フォルダで次を実行します。
 
 ```bash
 npm run serve
 ```
 
-�J���� URL:
+または PowerShell で次を実行します。
 
-- `http://localhost:4173/`
+```powershell
+cd "D:\AI生成\バイブコーディング\iOS用画像動画プロンプト生成アプリ\PromptWeaverWeb"
+python -m http.server 4177 --bind 0.0.0.0
+```
 
-���� Wi-Fi ��̃X�}�z�Ŏ����Ƃ��́APC �� IP �A�h���X��g���Ď��̂悤�ɊJ���܂��B
+PC では次の URL を開きます。
 
-- `http://<PC��IP�A�h���X>:4173/`
+- `http://localhost:4177/?v=4#home`
 
-��:
+同じ Wi-Fi の iPhone では次のように開きます。
 
-- `http://192.168.1.20:4173/`
+- `http://<PCのIPアドレス>:4177/?v=4#home`
 
-## �e�X�g
+## テスト
 
 ```bash
 npm test
 ```
 
-## QR�R�[�h�ŃX�}�z����J��
+## GitHub Pages で公開する
 
-1. PromptWeaver Web �� PC �ŊJ��
-2. `�ݒ�` ��J��
-3. `���L�pURL` �Ɍ��J URL �� LAN �� URL ������
-4. �\�����ꂽ QR �R�[�h��X�}�z�œǂݎ��
-5. iPhone �� Safari �ŊJ���āu�z�[����ʂɒǉ��v��I��
+このリポジトリには、`PromptWeaverWeb` をそのまま GitHub Pages に公開する workflow が入っています。
 
-### ����
+追加したファイル:
 
-- `localhost` �� `127.0.0.1` �̓X�}�z����J���܂���
-- ���� Wi-Fi �Ŏ����Ȃ� `http://192.168.x.x:4173/` �̂悤�� LAN �� URL ��g���܂�
-- �ӂ���g������Ȃ� HTTPS �̌��J URL ��g���̂��������߂ł�
+- `.github/workflows/deploy-promptweaver-web.yml`
 
-## iPhone �Ŏg��
+公開後の URL は、通常は次の形になります。
 
-### �܂�����
+- `https://<GitHubユーザー名>.github.io/<リポジトリ名>/`
 
-1. PC �� `npm run serve` ����s����
-2. iPhone �𓯂� Wi-Fi �ɐڑ�����
-3. Safari �� `http://<PC��IP�A�h���X>:4173/` ��J��
+### 最初に必要なこと
 
-### �ӂ���g������
+1. GitHub に push する
+2. GitHub の `Settings > Pages` を開く
+3. `Source` を `GitHub Actions` にする
+4. `Actions` タブで `Deploy PromptWeaver Web` が成功するのを待つ
 
-1. HTTPS �Ō��J�ł���ÓI�z�X�e�B���O�֔z�u����
-2. iPhone �� Safari �ŊJ��
-3. ���L���j���[����u�z�[����ʂɒǉ��v��I��
+### 公開後に iPhone で使う
 
-HTTPS �Ō��J����ƁA�z�[����ʒǉ���̃A�v���炵�������T�[�r�X���[�J�[�ɂ��I�t���C�����p�����肵�܂��B
+1. Safari で公開 URL を開く
+2. 共有ボタンを押す
+3. `ホーム画面に追加`
 
-## ���J���@�̍l����
-
-���̃A�v���͐ÓI�t�@�C�������œ����܂��B�r���h�s�v�ŁA`PromptWeaverWeb` �t�H���_�̒��g����̂܂܌��J�ł��܂��B
-
-�g���₷�����:
-
-- GitHub Pages
-- Cloudflare Pages
-- Netlify
-- Firebase Hosting
-
-���J���� URL �� `�ݒ�` �� `���L�pURL` �ɓ����ƁA���� URL �p�� QR �R�[�h���\������܂��B
-
-## Windows �Ŏg��
-
-1. Edge �܂��� Chrome �ŊJ��
-2. �C���X�g�[���{�^���A�܂��̓��j���[����A�v���Ƃ��ăC���X�g�[������
-
-## �⑫
-
-- �f�[�^�̓u���E�U�̃��[�J���X�g���[�W�ɕۑ�����܂�
-- �[����܂��������������͂܂������Ă��܂���
-- `.md` �� `.json` ������o���Ď蓮�Ŏ󂯓n���ł��܂�
-- �����I�ɃN���E�h������o�����C���|�[�g�𑫂���悤�A�f�[�^�\���͕����Ă���܂�
-- ���݂� QR �R�[�h�\���͊O���� QR �摜�T�[�r�X��g���Ă��܂�
+これで PC を起動しなくても使えます。
