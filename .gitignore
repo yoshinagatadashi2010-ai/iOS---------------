@@ -3,3 +3,11 @@ DerivedData/
 build/
 *.xcuserstate
 xcuserdata/
+.env
+.env.*
+*.pem
+*.p12
+*.mobileprovision
+Secrets.plist
+GoogleService-Info.plist
+*.key
