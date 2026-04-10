@@ -13,36 +13,48 @@
 - `PromptWeaverWeb` は GitHub Pages で公開されている
 - Web 版のデータ保存は `localStorage`
 - Web 版は独自バックエンドを持たない静的サイト
-- QR コード表示は外部サービスを使っている
+- QR コード表示はアプリ内で生成している
 - iOS 側の entitlements には `com.example` の仮値が残っている
+
+## 現在の反映状況（2026-04-10）
+
+- [x] GitHub Pages で公開済み
+- [x] `master` 保護ルールを有効化
+- [x] Secret Protection / push protection を有効化
+- [x] Dependency graph を有効化
+- [x] Dependabot alerts を有効化
+- [x] Dependabot security updates を有効化
+- [x] `.gitignore` を強化
+- [x] QR コードをアプリ内生成へ変更
 
 ## 優先度 A: 先にやる
 
-- [ ] `master` に branch protection を設定する
+- [x] `master` に branch protection を設定する
   - 直接 push を禁止
   - Pull Request 必須
   - 必要なら review 必須
   - status check 必須
 
-- [ ] GitHub の secret scanning を有効にする
+- [x] GitHub の secret scanning を有効にする
   - Public repo では最優先
   - 誤って API キーや token を入れた時の検知に使う
 
-- [ ] GitHub の push protection を有効にする
+- [x] GitHub の push protection を有効にする
   - 秘密情報を push しようとした時点で止める
 
-- [ ] collaborator 権限を見直す
+- [x] collaborator 権限を見直す
   - Admin は必要最小限
   - 普段の作業は Write か Triage で足りるか確認
+  - 現在は追加 collaborator なし
 
 - [ ] Actions の実行権限を見直す
   - 不要な workflow を増やさない
   - 必要な workflow だけを残す
   - third-party action を増やす時は source を確認する
 
-- [ ] `.gitignore` を強化する
+- [x] `.gitignore` を強化する
   - 現在の `.gitignore` は Xcode 系中心で、秘密情報向けの除外が弱い
-  - 追加候補:
+  - 追加済み:
     - `.env`
     - `.env.*`
     - `*.pem`
@@ -51,12 +63,13 @@
     - `Secrets.plist`
     - `GoogleService-Info.plist`
     - `*.key`
+    - `node_modules/`
+    - `.npm-cache/`
 
 ## 優先度 B: Web 版の安全性を上げる
 
-- [ ] `PromptWeaverWeb` の QR 生成を外部依存からアプリ内生成に置き換える
-  - 現在は URL を外部 QR サービスへ渡している
-  - 機密データそのものではないが、依存先は減らしたほうがよい
+- [x] `PromptWeaverWeb` の QR 生成を外部依存からアプリ内生成に置き換える
+  - 共有 URL を外部 QR サービスへ送らない構成に変更済み
   - 対象:
     - [export.js](D:/AI生成/バイブコーディング/iOS用画像動画プロンプト生成アプリ/PromptWeaverWeb/src/core/export.js)
 
@@ -111,13 +124,13 @@
 
 ## 優先度 D: GitHub 運用の改善
 
-- [ ] Pages 配信用 workflow は `master` だけを対象にする
+- [x] Pages 配信用 workflow は `master` だけを対象にする
   - 途中の作業 branch で失敗ログを増やさない
   - 誤配信や混乱を避ける
   - 対象:
     - [deploy-promptweaver-web.yml](D:/AI生成/バイブコーディング/iOS用画像動画プロンプト生成アプリ/.github/workflows/deploy-promptweaver-web.yml)
 
-- [ ] Dependabot alerts と security updates を有効にする
+- [x] Dependabot alerts と security updates を有効にする
   - 将来ライブラリ追加時に効く
 
 - [ ] Issue / Discussions / Wiki の公開範囲を見直す
@@ -151,14 +164,14 @@
 ## このリポジトリで特に注意する点
 
 - Web 版の保存先はサーバーではなく `localStorage`
-- QR 表示は外部サービス依存
+- QR 表示はアプリ内生成
 - 公開リポジトリなので、今後追加する設定ファイルの扱いに注意
 - iOS 側の entitlements はまだ仮値を含む
 
 ## 次に着手しやすい順番
 
-1. `master` の branch protection を設定する
-2. secret scanning / push protection を有効にする
-3. `.gitignore` を強化する
-4. QR をアプリ内生成へ置き換える
-5. workflow の対象 branch を `master` のみに絞る
+1. Actions の実行権限を見直す
+2. 共有端末での `localStorage` 運用ルールを決める
+3. iOS 側の entitlements 仮値を本番値へ置き換える
+4. service worker の更新運用を決める
+5. 将来的な Content Security Policy を検討する
