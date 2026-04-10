@@ -26,14 +26,15 @@
 - [x] Dependabot security updates を有効化
 - [x] `.gitignore` を強化
 - [x] QR コードをアプリ内生成へ変更
+- [x] Web 版テスト workflow を追加
 
 ## 優先度 A: 先にやる
 
 - [x] `master` に branch protection を設定する
-  - 直接 push を禁止
   - Pull Request 必須
-  - 必要なら review 必須
-  - status check 必須
+  - 会話解決必須
+  - force push / branch deletion をブロック
+  - ただし `status checks 必須` と `承認数 1 以上` は未設定
 
 - [x] GitHub の secret scanning を有効にする
   - Public repo では最優先
@@ -51,6 +52,7 @@
   - 不要な workflow を増やさない
   - 必要な workflow だけを残す
   - third-party action を増やす時は source を確認する
+  - 現在は deploy workflow と test workflow の2本
 
 - [x] `.gitignore` を強化する
   - 現在の `.gitignore` は Xcode 系中心で、秘密情報向けの除外が弱い
@@ -133,6 +135,12 @@
 - [x] Dependabot alerts と security updates を有効にする
   - 将来ライブラリ追加時に効く
 
+- [x] `PromptWeaverWeb` の pull request テスト workflow を追加する
+  - `npm test` を GitHub Actions 上でも実行
+  - 次の一手として ruleset の required check に追加するとより堅くなる
+  - 対象:
+    - [promptweaver-web-test.yml](D:/AI生成/バイブコーディング/iOS用画像動画プロンプト生成アプリ/.github/workflows/promptweaver-web-test.yml)
+
 - [ ] Issue / Discussions / Wiki の公開範囲を見直す
   - 不要なら閉じる
   - 外部投稿を受ける面を増やしすぎない
@@ -171,7 +179,7 @@
 ## 次に着手しやすい順番
 
 1. Actions の実行権限を見直す
-2. 共有端末での `localStorage` 運用ルールを決める
-3. iOS 側の entitlements 仮値を本番値へ置き換える
-4. service worker の更新運用を決める
-5. 将来的な Content Security Policy を検討する
+2. ruleset で `PromptWeaver Web Test / test` を required status check に追加する
+3. 共有端末での `localStorage` 運用ルールを決める
+4. iOS 側の entitlements 仮値を本番値へ置き換える
+5. service worker の更新運用を決める

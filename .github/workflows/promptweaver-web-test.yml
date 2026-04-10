@@ -1,0 +1,38 @@
+name: PromptWeaver Web Test
+
+on:
+  pull_request:
+    branches:
+      - master
+    paths:
+      - ".github/workflows/promptweaver-web-test.yml"
+      - "PromptWeaverWeb/**"
+  push:
+    branches:
+      - master
+    paths:
+      - ".github/workflows/promptweaver-web-test.yml"
+      - "PromptWeaverWeb/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: PromptWeaverWeb
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run tests
+        run: npm test
