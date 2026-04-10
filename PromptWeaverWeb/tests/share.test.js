@@ -13,6 +13,10 @@ test("share url validation accepts http and https", () => {
 test("qr code image url encodes share url", () => {
   const qrUrl = buildQrCodeImageUrl("https://example.com/app?mode=mobile");
 
-  assert.match(qrUrl, /^https:\/\/api\.qrserver\.com\/v1\/create-qr-code\//);
-  assert.match(qrUrl, /data=https%3A%2F%2Fexample\.com%2Fapp%3Fmode%3Dmobile/);
+  assert.match(qrUrl, /^data:image\/svg\+xml;charset=utf-8,/);
+  assert.doesNotMatch(qrUrl, /api\.qrserver\.com/);
+
+  const svg = decodeURIComponent(qrUrl.replace(/^data:image\/svg\+xml;charset=utf-8,/, ""));
+  assert.match(svg, /<svg\b/);
+  assert.match(svg, /viewBox=/);
 });

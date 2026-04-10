@@ -1,6 +1,8 @@
 .DS_Store
 DerivedData/
 build/
+node_modules/
+.npm-cache/
 *.xcuserstate
 xcuserdata/
 .env

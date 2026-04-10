@@ -1,3 +1,4 @@
+import { qrcode } from "../vendor/qrcode-generator.mjs";
 import {
   getDisplayTitle,
   getFilenameBase,
@@ -38,8 +39,17 @@ export function buildQrCodeImageUrl(value) {
     return "";
   }
 
-  // TODO: �O���ˑ������邽�߁A�����̓��[�J�������֒u��������B
-  return `https://api.qrserver.com/v1/create-qr-code/?size=320x320&format=svg&data=${encodeURIComponent(normalized)}`;
+  const code = qrcode(0, "M");
+  code.addData(normalized);
+  code.make();
+
+  const svg = code.createSvgTag({
+    cellSize: 8,
+    margin: 16,
+    scalable: true
+  });
+
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
 export async function copyText(text) {
