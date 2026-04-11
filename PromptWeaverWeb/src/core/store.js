@@ -154,6 +154,7 @@ export class PromptWeaverStore extends EventTarget {
         environment: "",
         negativePrompt: "",
         notes: "",
+        referenceImage: null,
         ...(project.imageDetail ?? {})
       };
       project.videoDetail = null;
@@ -213,23 +214,35 @@ export class PromptWeaverStore extends EventTarget {
       this.persistTimer = null;
     }
 
-    this.projects = this.projects.map(normalizeProject);
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify(
-        {
-          version: 1,
-          projects: this.projects,
-          settings: this.settings
-        },
-        null,
-        2
-      )
-    );
-    this.saveStatus = {
-      kind: "saved",
-      timestamp: new Date().toISOString()
-    };
+    try {
+      this.projects = this.projects.map(normalizeProject);
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify(
+          {
+            version: 1,
+            projects: this.projects,
+            settings: this.settings
+          },
+          null,
+          2
+        )
+      );
+      this.saveStatus = {
+        kind: "saved",
+        timestamp: new Date().toISOString()
+      };
+    } catch (error) {
+      this.saveStatus = {
+        kind: "failed",
+        message: error?.message || "保存に失敗しました"
+      };
+      this.notify("save-status");
+      if (reason !== "save-status") {
+        this.notify(reason);
+      }
+      return;
+    }
     this.notify(reason);
   }
 

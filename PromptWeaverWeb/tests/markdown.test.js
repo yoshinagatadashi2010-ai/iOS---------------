@@ -5,7 +5,8 @@ import {
   FALLBACK_TITLES,
   LANGUAGES,
   PROJECT_TYPES,
-  createEmptyProject
+  createEmptyProject,
+  normalizeProject
 } from "../src/core/models.js";
 import { buildImageMarkdown, buildVideoMarkdown } from "../src/core/markdown.js";
 
@@ -93,4 +94,49 @@ test("empty image title falls back to default title", () => {
   const expected = `## Title\n${FALLBACK_TITLES[PROJECT_TYPES.IMAGE]}`;
 
   assert.equal(markdown.includes(expected), true);
+});
+
+test("image markdown includes reference image when attached", () => {
+  const project = createEmptyProject(PROJECT_TYPES.IMAGE, LANGUAGES.JAPANESE);
+  project.imageDetail.referenceImage = {
+    name: "mood-board.jpg",
+    dataUrl: "data:image/jpeg;base64,ZmFrZQ==",
+    mimeType: "image/jpeg",
+    byteSize: 1234,
+    width: 1280,
+    height: 720
+  };
+
+  const markdown = buildImageMarkdown(project);
+
+  assert.match(markdown, /## Reference Image\nAttached to project: mood-board\.jpg/);
+});
+
+test("normalizeProject preserves valid reference image and drops invalid data", () => {
+  const project = createEmptyProject(PROJECT_TYPES.IMAGE, LANGUAGES.JAPANESE);
+  project.imageDetail.referenceImage = {
+    name: "reference.png",
+    dataUrl: "data:image/png;base64,ZmFrZQ==",
+    mimeType: "image/png",
+    byteSize: 2345,
+    width: 800,
+    height: 600
+  };
+
+  const normalized = normalizeProject(project);
+  assert.equal(normalized.imageDetail.referenceImage.name, "reference.png");
+  assert.equal(normalized.imageDetail.referenceImage.width, 800);
+
+  const broken = normalizeProject({
+    ...project,
+    imageDetail: {
+      ...project.imageDetail,
+      referenceImage: {
+        name: "broken",
+        dataUrl: "not-a-data-url"
+      }
+    }
+  });
+
+  assert.equal(broken.imageDetail.referenceImage, null);
 });
