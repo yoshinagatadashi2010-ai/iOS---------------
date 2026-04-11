@@ -14,6 +14,7 @@ struct ImagePromptMarkdownBuilder {
         appendSection(title: "Color Tone", content: detail.colorTone, to: &lines)
         appendSection(title: "Mood", content: detail.mood, to: &lines)
         appendSection(title: "Environment", content: detail.environment, to: &lines)
+        appendSection(title: "Reference Image", content: referenceImageDescription(for: detail), to: &lines)
         appendSection(title: "Negative Prompt", content: detail.negativePrompt, to: &lines)
         appendSection(title: "Notes", content: detail.notes, to: &lines)
 
@@ -26,6 +27,18 @@ struct ImagePromptMarkdownBuilder {
         }
 
         lines.append(contentsOf: ["## \(title)", content, ""])
+    }
+
+    private func referenceImageDescription(for detail: ImagePromptDetailSnapshot) -> String? {
+        guard detail.referenceImageData != nil else {
+            return nil
+        }
+
+        if let filename = detail.referenceImageFilename?.trimmedOrNil {
+            return "Attached to project: \(filename)"
+        }
+
+        return "Attached to project"
     }
 
     private func finalize(_ lines: [String]) -> String {
