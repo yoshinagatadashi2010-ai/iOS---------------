@@ -1,4 +1,4 @@
-const CACHE_NAME = "promptweaver-web-v2";
+const CACHE_NAME = "promptweaver-web-v4";
 const ASSETS = [
   "./",
   "./index.html",
@@ -8,6 +8,8 @@ const ASSETS = [
   "./src/main.js",
   "./src/core/models.js",
   "./src/core/markdown.js",
+  "./src/core/persistence.js",
+  "./src/core/reference-images.js",
   "./src/core/export.js",
   "./src/core/store.js",
   "./src/ui/router.js",

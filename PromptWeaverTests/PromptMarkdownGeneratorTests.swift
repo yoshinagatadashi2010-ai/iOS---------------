@@ -116,4 +116,26 @@ final class PromptMarkdownGeneratorTests: XCTestCase {
 
         XCTAssertTrue(markdown.contains("## Title\n無題の画像プロンプト"))
     }
+
+    func testImageMarkdownIncludesReferenceImageWhenAttached() {
+        var snapshot = PromptProjectSnapshot.empty(type: .image, language: .japanese)
+        snapshot.imageDetail = ImagePromptDetailSnapshot(
+            subject: "テスト",
+            composition: "",
+            style: "",
+            lighting: "",
+            camera: "",
+            colorTone: "",
+            mood: "",
+            environment: "",
+            negativePrompt: "",
+            notes: "",
+            referenceImageData: Data([0x01, 0x02, 0x03]),
+            referenceImageFilename: "mood-board.png"
+        )
+
+        let markdown = imageBuilder.build(from: snapshot)
+
+        XCTAssertTrue(markdown.contains("## Reference Image\nAttached to project: mood-board.png"))
+    }
 }

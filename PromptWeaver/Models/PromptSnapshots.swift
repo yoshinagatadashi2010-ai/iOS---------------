@@ -69,6 +69,8 @@ struct ImagePromptDetailSnapshot: Codable, Equatable, Sendable {
     var environment: String
     var negativePrompt: String
     var notes: String
+    var referenceImageData: Data? = nil
+    var referenceImageFilename: String? = nil
 
     static let empty = ImagePromptDetailSnapshot(
         subject: "",
@@ -80,7 +82,9 @@ struct ImagePromptDetailSnapshot: Codable, Equatable, Sendable {
         mood: "",
         environment: "",
         negativePrompt: "",
-        notes: ""
+        notes: "",
+        referenceImageData: nil,
+        referenceImageFilename: nil
     )
 }
 

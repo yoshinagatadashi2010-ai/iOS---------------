@@ -22,7 +22,11 @@ import {
   shareAppUrl,
   shareMarkdown
 } from "../core/export.js";
+import { PERSISTENCE_BACKENDS } from "../core/persistence.js";
+import { prepareReferenceImage } from "../core/reference-images.js";
 import { navigate, parseHash } from "./router.js";
+
+const MAX_REFERENCE_IMAGES_PER_PROJECT = 6;
 
 const T = {
   home: "\u30db\u30fc\u30e0",
@@ -73,6 +77,19 @@ const T = {
   outputFormat: "\u51fa\u529b\u5f62\u5f0f",
   archived: "\u30a2\u30fc\u30ab\u30a4\u30d6",
   imagePrompt: "\u753b\u50cf\u30d7\u30ed\u30f3\u30d7\u30c8",
+  referenceImage: "\u53c2\u7167\u753b\u50cf",
+  referenceImageHint: "\u53c2\u7167\u753b\u50cf\u306f\u30d6\u30e9\u30a6\u30b6\u4fdd\u5b58\u5411\u3051\u306b\u8efd\u91cf\u5316\u3055\u308c\u3001\u30d7\u30ed\u30b8\u30a7\u30af\u30c8\u3068\u4e00\u7dd2\u306b\u4fdd\u5b58\u3055\u308c\u307e\u3059\u3002\u6700\u59276\u679a\u307e\u3067\u8ffd\u52a0\u3067\u304d\u307e\u3059\u3002",
+  referenceImageEmpty: "\u5199\u771f\u30e9\u30a4\u30d6\u30e9\u30ea\u3084\u30d5\u30a1\u30a4\u30eb\u304b\u3089\u53c2\u7167\u753b\u50cf\u3092\u8907\u6570\u679a\u8ffd\u52a0\u3067\u304d\u307e\u3059\u3002",
+  referenceImageChoose: "\u53c2\u7167\u753b\u50cf\u3092\u8ffd\u52a0",
+  referenceImageReplace: "\u53c2\u7167\u753b\u50cf\u3092\u8ffd\u52a0",
+  referenceImageLibrary: "\u5199\u771f\u30e9\u30a4\u30d6\u30e9\u30ea\u304b\u3089\u8ffd\u52a0",
+  referenceImageCamera: "\u30ab\u30e1\u30e9\u3067\u64ae\u308b",
+  referenceImageRemove: "\u3053\u306e\u53c2\u7167\u753b\u50cf\u3092\u524a\u9664",
+  referenceImageAdded: "\u53c2\u7167\u753b\u50cf\u3092\u8ffd\u52a0\u3057\u307e\u3057\u305f",
+  referenceImageRemoved: "\u53c2\u7167\u753b\u50cf\u3092\u524a\u9664\u3057\u307e\u3057\u305f",
+  referenceImageLimitReached: "\u53c2\u7167\u753b\u50cf\u306f1\u30d7\u30ed\u30b8\u30a7\u30af\u30c8\u3042\u305f\u308a6\u679a\u307e\u3067\u3067\u3059",
+  storageReady: "\u62e1\u5f35\u4fdd\u5b58\u304c\u6709\u52b9\u3067\u3059\u3002iPhone \u3067\u3082\u53c2\u7167\u753b\u50cf\u3092\u8907\u6570\u679a\u4fdd\u6301\u3057\u3084\u3059\u3044\u69cb\u6210\u3067\u3059\u3002",
+  storageFallback: "\u3053\u306e\u30d6\u30e9\u30a6\u30b6\u306f\u7c21\u6613\u4fdd\u5b58\u30e2\u30fc\u30c9\u3067\u3059\u3002\u53c2\u7167\u753b\u50cf\u304c\u591a\u3044\u3068\u4fdd\u5b58\u4e0a\u9650\u306b\u9054\u3059\u308b\u3053\u3068\u304c\u3042\u308a\u307e\u3059\u3002",
   negativePrompt: "\u30cd\u30ac\u30c6\u30a3\u30d6\u30d7\u30ed\u30f3\u30d7\u30c8",
   notes: "\u30e1\u30e2"
 };
@@ -136,6 +153,65 @@ function projectTypeBadge(project) {
   return element("span", { className: "badge", text: PROJECT_TYPE_LABELS[project.projectType] });
 }
 
+function hasReferenceImage(project) {
+  return getProjectReferenceImages(project).length > 0;
+}
+
+function formatFileSize(value) {
+  return new Intl.NumberFormat("ja-JP", {
+    maximumFractionDigits: value >= 1_000_000 ? 1 : 0
+  }).format(value >= 1_000_000 ? value / 1_000_000 : value / 1_000);
+}
+
+function describeReferenceImage(referenceImage) {
+  if (!referenceImage?.dataUrl) {
+    return "";
+  }
+
+  const parts = [];
+  if (referenceImage.name) {
+    parts.push(referenceImage.name);
+  }
+  if (referenceImage.byteSize > 0) {
+    parts.push(
+      referenceImage.byteSize >= 1_000_000
+        ? `${formatFileSize(referenceImage.byteSize)} MB`
+        : `${formatFileSize(referenceImage.byteSize)} KB`
+    );
+  }
+  if (referenceImage.width > 0 && referenceImage.height > 0) {
+    parts.push(`${referenceImage.width}×${referenceImage.height}`);
+  }
+  return parts.join(" ・ ");
+}
+
+function getProjectReferenceImage(project) {
+  return getProjectReferenceImages(project)[0] ?? null;
+}
+
+function getProjectReferenceImages(project) {
+  const source = project?.projectType === PROJECT_TYPES.VIDEO
+    ? project?.videoDetail?.referenceImages ?? project?.videoDetail?.referenceImage
+    : project?.imageDetail?.referenceImages ?? project?.imageDetail?.referenceImage;
+
+  if (!source) {
+    return [];
+  }
+
+  return Array.isArray(source) ? source.filter((item) => item?.dataUrl) : [source].filter((item) => item?.dataUrl);
+}
+
+function referenceImageBadgeText(project) {
+  const count = getProjectReferenceImages(project).length;
+  return count > 1 ? `${T.referenceImage} ${count}` : T.referenceImage;
+}
+
+function getStorageSupportMessage(store) {
+  return store.storageBackend === PERSISTENCE_BACKENDS.INDEXED_DB
+    ? T.storageReady
+    : T.storageFallback;
+}
+
 export class AppRenderer {
   constructor(root, store) {
     this.root = root;
@@ -145,6 +221,10 @@ export class AppRenderer {
     this.store.addEventListener("change", (event) => {
       if (event.detail.reason === "save-status") {
         this.refreshSaveIndicators();
+        this.refreshStorageIndicators();
+        if (event.detail.saveStatus?.kind === "failed") {
+          this.showToast(event.detail.saveStatus.message || "保存に失敗しました");
+        }
         return;
       }
       this.render();
@@ -173,6 +253,7 @@ export class AppRenderer {
     ]);
     this.root.replaceChildren(shell);
     this.refreshSaveIndicators();
+    this.refreshStorageIndicators();
     if (this.previewProjectId) this.openPreview(this.previewProjectId);
   }
   renderTopbar(route) {
@@ -260,7 +341,7 @@ export class AppRenderer {
   renderProjectCard(project) {
     const card = element("article", { className: "project-card" });
     card.append(element("div", { className: "project-card__head" }, [
-      element("div", {}, [element("h3", { className: "project-card__title", text: getDisplayTitle(project) }), element("div", { className: "project-card__meta" }, [projectTypeBadge(project), project.favorite ? element("span", { className: "badge badge--accent", text: T.favorite }) : null])]),
+      element("div", {}, [element("h3", { className: "project-card__title", text: getDisplayTitle(project) }), element("div", { className: "project-card__meta" }, [projectTypeBadge(project), hasReferenceImage(project) ? element("span", { className: "badge", text: referenceImageBadgeText(project) }) : null, project.favorite ? element("span", { className: "badge badge--accent", text: T.favorite }) : null])]),
       element("div", { className: "toolbar-inline" }, [element("button", { className: "button", text: T.open, onClick: () => navigate({ name: "editor", projectId: project.id }) }), element("button", { className: "button", text: project.favorite ? "★" : "☆", onClick: () => this.store.toggleFavorite(project.id) })])
     ]));
     if (project.summary.trim()) card.append(element("div", { className: "muted", text: project.summary }));
@@ -278,7 +359,11 @@ export class AppRenderer {
     const formColumn = element("div", { className: "form-grid" });
     const toolbarColumn = element("div", { className: "toolbar" }, [element("div", { className: "toolbar__inner" }, [element("div", { className: "save-indicator", attrs: { "data-save-indicator": "true" }, text: formatSaveStatus(this.store.saveStatus) }), element("button", { className: "button button--primary button--block", text: T.exportMarkdown, onClick: () => { exportMarkdown(this.store.getExportableProject(project.id)); this.showToast(T.exportMarkdownDone); } }), element("button", { className: "button button--block", text: T.exportJson, onClick: () => { exportJson(this.store.getExportableProject(project.id)); this.showToast(T.exportJsonDone); } }), element("button", { className: "button button--block", text: project.favorite ? T.unfavorite : T.addFavorite, onClick: () => this.store.toggleFavorite(project.id) }), element("button", { className: "button button--danger button--block", text: T.delete, onClick: () => { if (window.confirm(T.confirmDelete)) { this.store.deleteProject(project.id); navigate({ name: "projects" }); } } })])]);
     formColumn.append(this.renderSharedEditorSection(project, titleNode));
-    formColumn.append(project.projectType === PROJECT_TYPES.IMAGE ? this.renderImageEditorSection(project) : this.renderVideoEditorSection(project));
+    if (project.projectType === PROJECT_TYPES.IMAGE) {
+      formColumn.append(this.renderReferenceImageSection(project), this.renderImageEditorSection(project));
+    } else {
+      formColumn.append(this.renderReferenceImageSection(project), this.renderVideoEditorSection(project));
+    }
     grid.append(formColumn, toolbarColumn);
     page.append(grid);
     return page;
@@ -297,6 +382,114 @@ export class AppRenderer {
     section.append(fieldGrid);
     return section;
   }
+
+  renderReferenceImageSection(project) {
+    const referenceImages = getProjectReferenceImages(project);
+    const section = element("section", { className: "editor-section" }, [
+      element("div", { className: "editor-section__header" }, [
+        element("h2", { className: "panel-title", text: T.referenceImage }),
+        referenceImages.length
+          ? element("span", { className: "badge badge--accent", text: `${referenceImages.length}/${MAX_REFERENCE_IMAGES_PER_PROJECT}` })
+          : null
+      ])
+    ]);
+
+    const content = element("div", { className: "reference-image-section" });
+    const libraryInput = element("input", {
+      attrs: {
+        type: "file",
+        accept: "image/*",
+        multiple: "true",
+        hidden: "true"
+      },
+      onChange: async (event) => {
+        const files = Array.from(event.currentTarget.files ?? []);
+        event.currentTarget.value = "";
+        if (!files.length) {
+          return;
+        }
+
+        await this.handleReferenceImageSelected(project.id, files);
+      }
+    });
+    const cameraInput = element("input", {
+      attrs: {
+        type: "file",
+        accept: "image/*",
+        capture: "environment",
+        hidden: "true"
+      },
+      onChange: async (event) => {
+        const files = Array.from(event.currentTarget.files ?? []);
+        event.currentTarget.value = "";
+        if (!files.length) {
+          return;
+        }
+
+        await this.handleReferenceImageSelected(project.id, files);
+      }
+    });
+
+    if (referenceImages.length) {
+      content.append(
+        element(
+          "div",
+          { className: "reference-image-gallery" },
+          referenceImages.map((referenceImage, index) =>
+            element("div", { className: "reference-image-card" }, [
+              element("img", {
+                className: "reference-image-card__preview",
+                attrs: {
+                  src: referenceImage.dataUrl,
+                  alt: referenceImage.name || `${T.referenceImage} ${index + 1}`,
+                  loading: "lazy"
+                }
+              }),
+              element("div", { className: "reference-image-card__meta" }, [
+                element("strong", {
+                  text: referenceImage.name || `${T.referenceImage} ${index + 1}`
+                }),
+                element("div", {
+                  className: "muted",
+                  text: describeReferenceImage(referenceImage)
+                }),
+                element("button", {
+                  className: "button button--danger",
+                  text: T.referenceImageRemove,
+                  onClick: () => this.removeReferenceImage(project.id, index)
+                })
+              ])
+            ])
+          )
+        )
+      );
+    } else {
+      content.append(element("div", { className: "empty-state", text: T.referenceImageEmpty }));
+    }
+
+    content.append(
+      element("div", { className: "button-row" }, [
+        element("button", {
+          className: "button",
+          text: referenceImages.length ? T.referenceImageLibrary : T.referenceImageChoose,
+          onClick: () => libraryInput.click()
+        }),
+        element("button", {
+          className: "button",
+          text: T.referenceImageCamera,
+          onClick: () => cameraInput.click()
+        })
+      ]),
+      element("div", { className: "muted", text: T.referenceImageHint }),
+      element("div", { className: "muted", attrs: { "data-storage-note": "true" }, text: getStorageSupportMessage(this.store) }),
+      libraryInput,
+      cameraInput
+    );
+
+    section.append(content);
+    return section;
+  }
+
   renderImageEditorSection(project) {
     const detail = project.imageDetail;
     const section = element("section", { className: "editor-section" }, [element("div", { className: "editor-section__header" }, [element("h2", { className: "panel-title", text: T.imagePrompt })])]);
@@ -317,6 +510,64 @@ export class AppRenderer {
     grid.append(textAreaField({ label: T.negativePrompt, value: detail.negativePrompt, placeholder: "\u907f\u3051\u305f\u3044\u8981\u7d20\u3084\u7834\u7dbb\u30dd\u30a4\u30f3\u30c8\u3092\u307e\u3068\u3081\u307e\u3059", onInput: (event) => { this.store.updateProject(project.id, (draft) => { draft.imageDetail.negativePrompt = event.currentTarget.value; }); } }), textAreaField({ label: T.notes, value: detail.notes, placeholder: "\u53c2\u7167\u30a4\u30e1\u30fc\u30b8\u3084\u5236\u4f5c\u30e1\u30e2\u306a\u3069\u3092\u81ea\u7531\u306b\u66f8\u3051\u307e\u3059", onInput: (event) => { this.store.updateProject(project.id, (draft) => { draft.imageDetail.notes = event.currentTarget.value; }); } }));
     section.append(grid);
     return section;
+  }
+
+  async handleReferenceImageSelected(projectId, files) {
+    const project = this.store.getProject(projectId);
+    const existingImages = getProjectReferenceImages(project);
+    const remainingSlots = MAX_REFERENCE_IMAGES_PER_PROJECT - existingImages.length;
+
+    if (remainingSlots <= 0) {
+      this.showToast(T.referenceImageLimitReached);
+      return;
+    }
+
+    const acceptedFiles = files.slice(0, remainingSlots);
+    const preparedImages = [];
+
+    try {
+      for (const file of acceptedFiles) {
+        preparedImages.push(await prepareReferenceImage(file));
+      }
+
+      this.store.updateProject(projectId, (draft) => {
+        const nextImages = [
+          ...getProjectReferenceImages(draft),
+          ...preparedImages
+        ];
+
+        if (draft.projectType === PROJECT_TYPES.VIDEO) {
+          draft.videoDetail.referenceImages = nextImages;
+        } else {
+          draft.imageDetail.referenceImages = nextImages;
+        }
+      }, { render: true });
+
+      if (files.length > acceptedFiles.length) {
+        this.showToast(T.referenceImageLimitReached);
+      } else {
+        this.showToast(
+          preparedImages.length > 1
+            ? `${preparedImages.length}枚の${T.referenceImage}を追加しました`
+            : T.referenceImageAdded
+        );
+      }
+    } catch (error) {
+      this.showToast(error?.message || "参照画像を追加できませんでした");
+    }
+  }
+
+  removeReferenceImage(projectId, referenceImageIndex) {
+    this.store.updateProject(projectId, (draft) => {
+      const nextImages = getProjectReferenceImages(draft).filter((_, index) => index !== referenceImageIndex);
+
+      if (draft.projectType === PROJECT_TYPES.VIDEO) {
+        draft.videoDetail.referenceImages = nextImages;
+      } else {
+        draft.imageDetail.referenceImages = nextImages;
+      }
+    }, { render: true });
+    this.showToast(T.referenceImageRemoved);
   }
 
   renderVideoEditorSection(project) {
@@ -359,7 +610,7 @@ export class AppRenderer {
   renderSettingsPage() {
     return element("section", { className: "page" }, [
       element("div", { className: "page-header" }, [element("div", {}, [element("h1", { className: "page-title", text: T.settings }), element("p", { className: "page-note", text: "\u65e2\u5b9a\u5024\u3001\u5171\u6709 URL\u3001\u30b9\u30de\u30db\u3078\u306e\u5c0e\u7dda\u3092\u307e\u3068\u3081\u3066\u78ba\u8a8d\u3067\u304d\u307e\u3059\u3002" })]) ]),
-      element("section", { className: "panel settings-list" }, [selectField({ label: "\u65e2\u5b9a\u306e\u8a00\u8a9e", value: this.store.settings.defaultLanguage, options: Object.entries(LANGUAGE_LABELS).map(([value, label]) => ({ value, label })), onChange: (event) => { this.store.updateSettings((settings) => { settings.defaultLanguage = event.currentTarget.value; }); } }), toggleField({ label: "Windows \u9023\u643a\u5411\u3051\u306e\u66f8\u304d\u51fa\u3057\u3092\u524d\u63d0\u306b\u3059\u308b", checked: this.store.settings.reflectionExportEnabled, onChange: (event) => { this.store.updateSettings((settings) => { settings.reflectionExportEnabled = event.currentTarget.checked; }); } }), element("div", { className: "muted", text: "\u3053\u306e Web \u7248\u3067\u306f\u81ea\u52d5\u540c\u671f\u306f\u307e\u3060\u3042\u308a\u307e\u305b\u3093\u3002\u5fc5\u8981\u306a\u3068\u304d\u306b Markdown / JSON \u3092\u66f8\u304d\u51fa\u3057\u3066\u3001iCloud Drive \u3084 OneDrive \u306b\u7f6e\u304f\u904b\u7528\u304c\u3067\u304d\u307e\u3059\u3002" }), element("div", { className: "muted", text: "iPhone \u306f Safari \u306e\u5171\u6709\u30e1\u30cb\u30e5\u30fc\u304b\u3089\u30db\u30fc\u30e0\u753b\u9762\u306b\u8ffd\u52a0\u3001Windows \u306f Edge / Chrome \u3067\u30a4\u30f3\u30b9\u30c8\u30fc\u30eb\u3059\u308b\u3068\u30a2\u30d7\u30ea\u306e\u3088\u3046\u306b\u4f7f\u3048\u307e\u3059\u3002" })]),
+      element("section", { className: "panel settings-list" }, [selectField({ label: "\u65e2\u5b9a\u306e\u8a00\u8a9e", value: this.store.settings.defaultLanguage, options: Object.entries(LANGUAGE_LABELS).map(([value, label]) => ({ value, label })), onChange: (event) => { this.store.updateSettings((settings) => { settings.defaultLanguage = event.currentTarget.value; }); } }), toggleField({ label: "Windows \u9023\u643a\u5411\u3051\u306e\u66f8\u304d\u51fa\u3057\u3092\u524d\u63d0\u306b\u3059\u308b", checked: this.store.settings.reflectionExportEnabled, onChange: (event) => { this.store.updateSettings((settings) => { settings.reflectionExportEnabled = event.currentTarget.checked; }); } }), element("div", { className: "badge badge--accent", attrs: { "data-storage-label": "true" }, text: `\u4fdd\u5b58\u65b9\u5f0f: ${this.store.storageLabel}` }), element("div", { className: "muted", attrs: { "data-storage-note": "true" }, text: getStorageSupportMessage(this.store) }), element("div", { className: "muted", text: "\u3053\u306e Web \u7248\u3067\u306f\u81ea\u52d5\u540c\u671f\u306f\u307e\u3060\u3042\u308a\u307e\u305b\u3093\u3002\u5fc5\u8981\u306a\u3068\u304d\u306b Markdown / JSON \u3092\u66f8\u304d\u51fa\u3057\u3066\u3001iCloud Drive \u3084 OneDrive \u306b\u7f6e\u304f\u904b\u7528\u304c\u3067\u304d\u307e\u3059\u3002" }), element("div", { className: "muted", text: "iPhone \u306f Safari \u306e\u5171\u6709\u30e1\u30cb\u30e5\u30fc\u304b\u3089\u30db\u30fc\u30e0\u753b\u9762\u306b\u8ffd\u52a0\u3001Windows \u306f Edge / Chrome \u3067\u30a4\u30f3\u30b9\u30c8\u30fc\u30eb\u3059\u308b\u3068\u30a2\u30d7\u30ea\u306e\u3088\u3046\u306b\u4f7f\u3048\u307e\u3059\u3002" })]),
       this.renderQrShareSection()
     ]);
   }
@@ -400,6 +651,16 @@ export class AppRenderer {
   refreshSaveIndicators() {
     this.root.querySelectorAll("[data-save-indicator]").forEach((node) => {
       node.textContent = formatSaveStatus(this.store.saveStatus);
+    });
+  }
+
+  refreshStorageIndicators() {
+    this.root.querySelectorAll("[data-storage-label]").forEach((node) => {
+      node.textContent = `保存方式: ${this.store.storageLabel}`;
+    });
+
+    this.root.querySelectorAll("[data-storage-note]").forEach((node) => {
+      node.textContent = getStorageSupportMessage(this.store);
     });
   }
 

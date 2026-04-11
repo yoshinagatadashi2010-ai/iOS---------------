@@ -27,6 +27,23 @@ function appendBullet(lines, label, content) {
   lines.push(`- ${label}: ${text}`);
 }
 
+function describeReferenceImages(referenceImages) {
+  const items = (Array.isArray(referenceImages) ? referenceImages : [])
+    .filter((referenceImage) => referenceImage?.dataUrl);
+
+  if (!items.length) {
+    return "";
+  }
+
+  return items
+    .map((referenceImage) =>
+      trimOrEmpty(referenceImage.name)
+        ? `- Attached to project: ${trimOrEmpty(referenceImage.name)}`
+        : "- Attached to project"
+    )
+    .join("\n");
+}
+
 function finalize(lines) {
   const copied = [...lines];
   while (copied[copied.length - 1] === "") {
@@ -55,6 +72,11 @@ export function buildImageMarkdown(project) {
   appendSection(lines, "Color Tone", detail.colorTone);
   appendSection(lines, "Mood", detail.mood);
   appendSection(lines, "Environment", detail.environment);
+  appendSection(
+    lines,
+    (detail.referenceImages?.length ?? 0) > 1 ? "Reference Images" : "Reference Image",
+    describeReferenceImages(detail.referenceImages)
+  );
   appendSection(lines, "Negative Prompt", detail.negativePrompt);
   appendSection(lines, "Notes", detail.notes);
 
@@ -80,6 +102,11 @@ export function buildVideoMarkdown(project) {
   appendSection(lines, "Visual Style", detail.visualStyle);
   appendSection(lines, "Pacing", detail.pacing);
   appendSection(lines, "Aspect Ratio", detail.aspectRatio);
+  appendSection(
+    lines,
+    (detail.referenceImages?.length ?? 0) > 1 ? "Reference Images" : "Reference Image",
+    describeReferenceImages(detail.referenceImages)
+  );
 
   if (scenes.length) {
     lines.push("## Scenes", "");
