@@ -103,6 +103,22 @@ function cloneValue(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+function normalizeReferenceImage(referenceImage) {
+  const dataUrl = `${referenceImage?.dataUrl ?? ""}`.trim();
+  if (!dataUrl.startsWith("data:image/")) {
+    return null;
+  }
+
+  return {
+    name: `${referenceImage?.name ?? ""}`.trim(),
+    dataUrl,
+    mimeType: `${referenceImage?.mimeType ?? ""}`.trim() || "image/jpeg",
+    byteSize: Math.max(0, Number(referenceImage?.byteSize) || 0),
+    width: Math.max(1, Number(referenceImage?.width) || 1),
+    height: Math.max(1, Number(referenceImage?.height) || 1)
+  };
+}
+
 function createEmptyImageDetail() {
   return {
     subject: "",
@@ -114,7 +130,8 @@ function createEmptyImageDetail() {
     mood: "",
     environment: "",
     negativePrompt: "",
-    notes: ""
+    notes: "",
+    referenceImage: null
   };
 }
 
@@ -247,7 +264,8 @@ export function normalizeProject(project) {
   if (normalized.projectType === PROJECT_TYPES.IMAGE) {
     normalized.imageDetail = {
       ...createEmptyImageDetail(),
-      ...(normalized.imageDetail ?? {})
+      ...(normalized.imageDetail ?? {}),
+      referenceImage: normalizeReferenceImage(normalized.imageDetail?.referenceImage)
     };
     normalized.videoDetail = null;
     return normalized;
@@ -377,6 +395,10 @@ export function formatSaveStatus(saveStatus) {
 
   if (saveStatus.kind === "saved") {
     return `保存済み ${formatDateTime(saveStatus.timestamp)}`;
+  }
+
+  if (saveStatus.kind === "failed") {
+    return "保存に失敗しました";
   }
 
   return "保存状態を確認できません";

@@ -27,6 +27,16 @@ function appendBullet(lines, label, content) {
   lines.push(`- ${label}: ${text}`);
 }
 
+function describeReferenceImage(referenceImage) {
+  if (!referenceImage?.dataUrl) {
+    return "";
+  }
+
+  return trimOrEmpty(referenceImage.name)
+    ? `Attached to project: ${trimOrEmpty(referenceImage.name)}`
+    : "Attached to project";
+}
+
 function finalize(lines) {
   const copied = [...lines];
   while (copied[copied.length - 1] === "") {
@@ -55,6 +65,7 @@ export function buildImageMarkdown(project) {
   appendSection(lines, "Color Tone", detail.colorTone);
   appendSection(lines, "Mood", detail.mood);
   appendSection(lines, "Environment", detail.environment);
+  appendSection(lines, "Reference Image", describeReferenceImage(detail.referenceImage));
   appendSection(lines, "Negative Prompt", detail.negativePrompt);
   appendSection(lines, "Notes", detail.notes);
 
