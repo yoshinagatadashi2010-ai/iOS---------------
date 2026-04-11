@@ -48,7 +48,7 @@ async function startApp() {
     throw new Error("Cannot find #app root element.");
   }
 
-  const store = new PromptWeaverStore();
+  const store = await PromptWeaverStore.create();
   const renderer = new AppRenderer(root, store);
 
   renderer.init();

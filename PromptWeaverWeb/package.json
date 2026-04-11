@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "serve": "python -m http.server 4173",
+    "serve:mobile": "python -m http.server 4173 --bind 0.0.0.0",
     "test": "node --test"
   }
 }
