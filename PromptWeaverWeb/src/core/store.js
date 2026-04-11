@@ -1,8 +1,8 @@
 import {
   DEFAULT_SETTINGS,
   LIST_FILTERS,
-  SORT_OPTIONS,
   PROJECT_TYPES,
+  SORT_OPTIONS,
   createEmptyProject,
   createSampleProjects,
   duplicateProject,
@@ -11,40 +11,31 @@ import {
   normalizeTags,
   sortProjects
 } from "./models.js";
-
-const STORAGE_KEY = "promptweaver.web.v1";
-
-function loadPersistedState() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      return null;
-    }
-
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed.projects)) {
-      return null;
-    }
-
-    return {
-      projects: parsed.projects.map(normalizeProject),
-      settings: {
-        ...DEFAULT_SETTINGS,
-        ...(parsed.settings ?? {})
-      }
-    };
-  } catch {
-    return null;
-  }
-}
+import {
+  PERSISTENCE_BACKENDS,
+  createPersistedSnapshot,
+  getPersistenceLabel,
+  loadPersistedState,
+  persistState
+} from "./persistence.js";
 
 export class PromptWeaverStore extends EventTarget {
-  constructor() {
+  static async create() {
+    const persisted = await loadPersistedState();
+    return new PromptWeaverStore(persisted);
+  }
+
+  constructor(persisted = null) {
     super();
 
-    const persisted = loadPersistedState();
-    this.projects = persisted?.projects ?? createSampleProjects();
-    this.settings = persisted?.settings ?? { ...DEFAULT_SETTINGS };
+    const snapshot = persisted?.snapshot ?? null;
+    this.projects = snapshot?.projects?.map(normalizeProject) ?? createSampleProjects();
+    this.settings = snapshot
+      ? {
+          ...DEFAULT_SETTINGS,
+          ...(snapshot.settings ?? {})
+        }
+      : { ...DEFAULT_SETTINGS };
     this.listState = {
       searchText: "",
       filter: LIST_FILTERS.ALL,
@@ -52,8 +43,12 @@ export class PromptWeaverStore extends EventTarget {
     };
     this.saveStatus = { kind: "idle" };
     this.persistTimer = null;
+    this.persistVersion = 0;
+    this.storageBackend = persisted?.backend ?? PERSISTENCE_BACKENDS.LOCAL_STORAGE;
+    this.storageLabel = getPersistenceLabel(this.storageBackend);
+    this.storageMigrationApplied = Boolean(persisted?.migrated);
 
-    if (!persisted) {
+    if (!snapshot) {
       this.persistNow("save-status");
     }
   }
@@ -63,7 +58,10 @@ export class PromptWeaverStore extends EventTarget {
       new CustomEvent("change", {
         detail: {
           reason,
-          saveStatus: this.saveStatus
+          saveStatus: this.saveStatus,
+          storageBackend: this.storageBackend,
+          storageLabel: this.storageLabel,
+          storageMigrationApplied: this.storageMigrationApplied
         }
       })
     );
@@ -161,18 +159,19 @@ export class PromptWeaverStore extends EventTarget {
     }
 
     if (project.projectType === PROJECT_TYPES.VIDEO) {
-      const orderedScenes = [...(project.videoDetail?.scenes ?? [])].map(
-        (scene, index) => ({
-          ...scene,
-          orderIndex: index
-        })
-      );
+      const orderedScenes = [...(project.videoDetail?.scenes ?? [])].map((scene, index) => ({
+        ...scene,
+        orderIndex: index
+      }));
 
       project.videoDetail = normalizeProject({
         ...project,
         videoDetail: {
           ...(project.videoDetail ?? {}),
-          referenceImages: project.videoDetail?.referenceImages ?? project.videoDetail?.referenceImage ?? [],
+          referenceImages:
+            project.videoDetail?.referenceImages ??
+            project.videoDetail?.referenceImage ??
+            [],
           scenes: orderedScenes
         }
       }).videoDetail;
@@ -215,36 +214,43 @@ export class PromptWeaverStore extends EventTarget {
       this.persistTimer = null;
     }
 
-    try {
-      this.projects = this.projects.map(normalizeProject);
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify(
-          {
-            version: 1,
-            projects: this.projects,
-            settings: this.settings
-          },
-          null,
-          2
-        )
-      );
-      this.saveStatus = {
-        kind: "saved",
-        timestamp: new Date().toISOString()
-      };
-    } catch (error) {
-      this.saveStatus = {
-        kind: "failed",
-        message: error?.message || "保存に失敗しました"
-      };
+    this.projects = this.projects.map(normalizeProject);
+    this.saveStatus = { kind: "saving" };
+
+    if (reason !== "save-status") {
+      this.notify(reason);
+    } else {
       this.notify("save-status");
-      if (reason !== "save-status") {
-        this.notify(reason);
-      }
-      return;
     }
-    this.notify(reason);
+
+    const persistVersion = ++this.persistVersion;
+    const snapshot = createPersistedSnapshot(this.projects, this.settings);
+
+    void persistState(snapshot)
+      .then(({ backend }) => {
+        if (persistVersion !== this.persistVersion) {
+          return;
+        }
+
+        this.storageBackend = backend;
+        this.storageLabel = getPersistenceLabel(backend);
+        this.saveStatus = {
+          kind: "saved",
+          timestamp: snapshot.persistedAt
+        };
+        this.notify("save-status");
+      })
+      .catch((error) => {
+        if (persistVersion !== this.persistVersion) {
+          return;
+        }
+
+        this.saveStatus = {
+          kind: "failed",
+          message: error?.message || "ブラウザへの保存に失敗しました。"
+        };
+        this.notify("save-status");
+      });
   }
 
   getExportableProject(projectId) {
@@ -252,4 +258,3 @@ export class PromptWeaverStore extends EventTarget {
     return project ? normalizeProject(structuredClone(project)) : null;
   }
 }
-

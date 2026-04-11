@@ -22,6 +22,7 @@ import {
   shareAppUrl,
   shareMarkdown
 } from "../core/export.js";
+import { PERSISTENCE_BACKENDS } from "../core/persistence.js";
 import { prepareReferenceImage } from "../core/reference-images.js";
 import { navigate, parseHash } from "./router.js";
 
@@ -81,10 +82,14 @@ const T = {
   referenceImageEmpty: "\u5199\u771f\u30e9\u30a4\u30d6\u30e9\u30ea\u3084\u30d5\u30a1\u30a4\u30eb\u304b\u3089\u53c2\u7167\u753b\u50cf\u3092\u8907\u6570\u679a\u8ffd\u52a0\u3067\u304d\u307e\u3059\u3002",
   referenceImageChoose: "\u53c2\u7167\u753b\u50cf\u3092\u8ffd\u52a0",
   referenceImageReplace: "\u53c2\u7167\u753b\u50cf\u3092\u8ffd\u52a0",
+  referenceImageLibrary: "\u5199\u771f\u30e9\u30a4\u30d6\u30e9\u30ea\u304b\u3089\u8ffd\u52a0",
+  referenceImageCamera: "\u30ab\u30e1\u30e9\u3067\u64ae\u308b",
   referenceImageRemove: "\u3053\u306e\u53c2\u7167\u753b\u50cf\u3092\u524a\u9664",
   referenceImageAdded: "\u53c2\u7167\u753b\u50cf\u3092\u8ffd\u52a0\u3057\u307e\u3057\u305f",
   referenceImageRemoved: "\u53c2\u7167\u753b\u50cf\u3092\u524a\u9664\u3057\u307e\u3057\u305f",
   referenceImageLimitReached: "\u53c2\u7167\u753b\u50cf\u306f1\u30d7\u30ed\u30b8\u30a7\u30af\u30c8\u3042\u305f\u308a6\u679a\u307e\u3067\u3067\u3059",
+  storageReady: "\u62e1\u5f35\u4fdd\u5b58\u304c\u6709\u52b9\u3067\u3059\u3002iPhone \u3067\u3082\u53c2\u7167\u753b\u50cf\u3092\u8907\u6570\u679a\u4fdd\u6301\u3057\u3084\u3059\u3044\u69cb\u6210\u3067\u3059\u3002",
+  storageFallback: "\u3053\u306e\u30d6\u30e9\u30a6\u30b6\u306f\u7c21\u6613\u4fdd\u5b58\u30e2\u30fc\u30c9\u3067\u3059\u3002\u53c2\u7167\u753b\u50cf\u304c\u591a\u3044\u3068\u4fdd\u5b58\u4e0a\u9650\u306b\u9054\u3059\u308b\u3053\u3068\u304c\u3042\u308a\u307e\u3059\u3002",
   negativePrompt: "\u30cd\u30ac\u30c6\u30a3\u30d6\u30d7\u30ed\u30f3\u30d7\u30c8",
   notes: "\u30e1\u30e2"
 };
@@ -201,6 +206,12 @@ function referenceImageBadgeText(project) {
   return count > 1 ? `${T.referenceImage} ${count}` : T.referenceImage;
 }
 
+function getStorageSupportMessage(store) {
+  return store.storageBackend === PERSISTENCE_BACKENDS.INDEXED_DB
+    ? T.storageReady
+    : T.storageFallback;
+}
+
 export class AppRenderer {
   constructor(root, store) {
     this.root = root;
@@ -210,6 +221,7 @@ export class AppRenderer {
     this.store.addEventListener("change", (event) => {
       if (event.detail.reason === "save-status") {
         this.refreshSaveIndicators();
+        this.refreshStorageIndicators();
         if (event.detail.saveStatus?.kind === "failed") {
           this.showToast(event.detail.saveStatus.message || "保存に失敗しました");
         }
@@ -241,6 +253,7 @@ export class AppRenderer {
     ]);
     this.root.replaceChildren(shell);
     this.refreshSaveIndicators();
+    this.refreshStorageIndicators();
     if (this.previewProjectId) this.openPreview(this.previewProjectId);
   }
   renderTopbar(route) {
@@ -382,11 +395,28 @@ export class AppRenderer {
     ]);
 
     const content = element("div", { className: "reference-image-section" });
-    const pickerInput = element("input", {
+    const libraryInput = element("input", {
       attrs: {
         type: "file",
         accept: "image/*",
         multiple: "true",
+        hidden: "true"
+      },
+      onChange: async (event) => {
+        const files = Array.from(event.currentTarget.files ?? []);
+        event.currentTarget.value = "";
+        if (!files.length) {
+          return;
+        }
+
+        await this.handleReferenceImageSelected(project.id, files);
+      }
+    });
+    const cameraInput = element("input", {
+      attrs: {
+        type: "file",
+        accept: "image/*",
+        capture: "environment",
         hidden: "true"
       },
       onChange: async (event) => {
@@ -441,12 +471,19 @@ export class AppRenderer {
       element("div", { className: "button-row" }, [
         element("button", {
           className: "button",
-          text: referenceImages.length ? T.referenceImageReplace : T.referenceImageChoose,
-          onClick: () => pickerInput.click()
+          text: referenceImages.length ? T.referenceImageLibrary : T.referenceImageChoose,
+          onClick: () => libraryInput.click()
+        }),
+        element("button", {
+          className: "button",
+          text: T.referenceImageCamera,
+          onClick: () => cameraInput.click()
         })
       ]),
       element("div", { className: "muted", text: T.referenceImageHint }),
-      pickerInput
+      element("div", { className: "muted", attrs: { "data-storage-note": "true" }, text: getStorageSupportMessage(this.store) }),
+      libraryInput,
+      cameraInput
     );
 
     section.append(content);
@@ -573,7 +610,7 @@ export class AppRenderer {
   renderSettingsPage() {
     return element("section", { className: "page" }, [
       element("div", { className: "page-header" }, [element("div", {}, [element("h1", { className: "page-title", text: T.settings }), element("p", { className: "page-note", text: "\u65e2\u5b9a\u5024\u3001\u5171\u6709 URL\u3001\u30b9\u30de\u30db\u3078\u306e\u5c0e\u7dda\u3092\u307e\u3068\u3081\u3066\u78ba\u8a8d\u3067\u304d\u307e\u3059\u3002" })]) ]),
-      element("section", { className: "panel settings-list" }, [selectField({ label: "\u65e2\u5b9a\u306e\u8a00\u8a9e", value: this.store.settings.defaultLanguage, options: Object.entries(LANGUAGE_LABELS).map(([value, label]) => ({ value, label })), onChange: (event) => { this.store.updateSettings((settings) => { settings.defaultLanguage = event.currentTarget.value; }); } }), toggleField({ label: "Windows \u9023\u643a\u5411\u3051\u306e\u66f8\u304d\u51fa\u3057\u3092\u524d\u63d0\u306b\u3059\u308b", checked: this.store.settings.reflectionExportEnabled, onChange: (event) => { this.store.updateSettings((settings) => { settings.reflectionExportEnabled = event.currentTarget.checked; }); } }), element("div", { className: "muted", text: "\u3053\u306e Web \u7248\u3067\u306f\u81ea\u52d5\u540c\u671f\u306f\u307e\u3060\u3042\u308a\u307e\u305b\u3093\u3002\u5fc5\u8981\u306a\u3068\u304d\u306b Markdown / JSON \u3092\u66f8\u304d\u51fa\u3057\u3066\u3001iCloud Drive \u3084 OneDrive \u306b\u7f6e\u304f\u904b\u7528\u304c\u3067\u304d\u307e\u3059\u3002" }), element("div", { className: "muted", text: "iPhone \u306f Safari \u306e\u5171\u6709\u30e1\u30cb\u30e5\u30fc\u304b\u3089\u30db\u30fc\u30e0\u753b\u9762\u306b\u8ffd\u52a0\u3001Windows \u306f Edge / Chrome \u3067\u30a4\u30f3\u30b9\u30c8\u30fc\u30eb\u3059\u308b\u3068\u30a2\u30d7\u30ea\u306e\u3088\u3046\u306b\u4f7f\u3048\u307e\u3059\u3002" })]),
+      element("section", { className: "panel settings-list" }, [selectField({ label: "\u65e2\u5b9a\u306e\u8a00\u8a9e", value: this.store.settings.defaultLanguage, options: Object.entries(LANGUAGE_LABELS).map(([value, label]) => ({ value, label })), onChange: (event) => { this.store.updateSettings((settings) => { settings.defaultLanguage = event.currentTarget.value; }); } }), toggleField({ label: "Windows \u9023\u643a\u5411\u3051\u306e\u66f8\u304d\u51fa\u3057\u3092\u524d\u63d0\u306b\u3059\u308b", checked: this.store.settings.reflectionExportEnabled, onChange: (event) => { this.store.updateSettings((settings) => { settings.reflectionExportEnabled = event.currentTarget.checked; }); } }), element("div", { className: "badge badge--accent", attrs: { "data-storage-label": "true" }, text: `\u4fdd\u5b58\u65b9\u5f0f: ${this.store.storageLabel}` }), element("div", { className: "muted", attrs: { "data-storage-note": "true" }, text: getStorageSupportMessage(this.store) }), element("div", { className: "muted", text: "\u3053\u306e Web \u7248\u3067\u306f\u81ea\u52d5\u540c\u671f\u306f\u307e\u3060\u3042\u308a\u307e\u305b\u3093\u3002\u5fc5\u8981\u306a\u3068\u304d\u306b Markdown / JSON \u3092\u66f8\u304d\u51fa\u3057\u3066\u3001iCloud Drive \u3084 OneDrive \u306b\u7f6e\u304f\u904b\u7528\u304c\u3067\u304d\u307e\u3059\u3002" }), element("div", { className: "muted", text: "iPhone \u306f Safari \u306e\u5171\u6709\u30e1\u30cb\u30e5\u30fc\u304b\u3089\u30db\u30fc\u30e0\u753b\u9762\u306b\u8ffd\u52a0\u3001Windows \u306f Edge / Chrome \u3067\u30a4\u30f3\u30b9\u30c8\u30fc\u30eb\u3059\u308b\u3068\u30a2\u30d7\u30ea\u306e\u3088\u3046\u306b\u4f7f\u3048\u307e\u3059\u3002" })]),
       this.renderQrShareSection()
     ]);
   }
@@ -614,6 +651,16 @@ export class AppRenderer {
   refreshSaveIndicators() {
     this.root.querySelectorAll("[data-save-indicator]").forEach((node) => {
       node.textContent = formatSaveStatus(this.store.saveStatus);
+    });
+  }
+
+  refreshStorageIndicators() {
+    this.root.querySelectorAll("[data-storage-label]").forEach((node) => {
+      node.textContent = `保存方式: ${this.store.storageLabel}`;
+    });
+
+    this.root.querySelectorAll("[data-storage-note]").forEach((node) => {
+      node.textContent = getStorageSupportMessage(this.store);
     });
   }
 
