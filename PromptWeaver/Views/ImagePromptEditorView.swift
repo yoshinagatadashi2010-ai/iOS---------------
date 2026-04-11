@@ -1,8 +1,12 @@
-﻿import SwiftUI
+import SwiftUI
+import PhotosUI
+import UniformTypeIdentifiers
 
 struct ImagePromptEditorView: View {
     @StateObject private var viewModel: ImagePromptEditorViewModel
     @State private var isPreviewPresented = false
+    @State private var selectedReferencePhoto: PhotosPickerItem?
+    @State private var isReferenceFileImporterPresented = false
 
     init(projectID: UUID? = nil) {
         _viewModel = StateObject(wrappedValue: ImagePromptEditorViewModel(projectID: projectID))
@@ -11,6 +15,68 @@ struct ImagePromptEditorView: View {
     var body: some View {
         Form {
             SharedProjectFieldsSection(metadata: $viewModel.state.metadata)
+
+            Section("参照画像") {
+                VStack(alignment: .leading, spacing: 12) {
+                    if let preview = viewModel.referenceImagePreview {
+                        Image(uiImage: preview)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(maxWidth: .infinity)
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
+
+                        if let summary = viewModel.referenceImageSummary {
+                            Text(summary)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    } else {
+                        Label("写真アプリまたはファイルから参照画像を追加できます", systemImage: "photo.badge.plus")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    HStack {
+                        PhotosPicker(selection: $selectedReferencePhoto, matching: .images) {
+                            Label(
+                                viewModel.referenceImagePreview == nil ? "写真から追加" : "写真を変更",
+                                systemImage: "photo.on.rectangle"
+                            )
+                            .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+
+                        Button {
+                            isReferenceFileImporterPresented = true
+                        } label: {
+                            Label(
+                                viewModel.referenceImagePreview == nil ? "ファイルから追加" : "ファイルを変更",
+                                systemImage: "folder"
+                            )
+                            .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                    }
+
+                    if viewModel.referenceImagePreview != nil {
+                        Button(role: .destructive) {
+                            viewModel.removeReferenceImage()
+                        } label: {
+                            Label("参照画像を削除", systemImage: "trash")
+                        }
+                    }
+
+                    if viewModel.isImportingReferenceImage {
+                        ProgressView("画像を読み込み中")
+                            .font(.caption)
+                    } else {
+                        Text("参照画像は1枚だけ保存され、プロジェクトと一緒に保持されます。")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
 
             Section("画像プロンプト") {
                 TextField("被写体", text: $viewModel.state.subject)
@@ -54,8 +120,14 @@ struct ImagePromptEditorView: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .onChange(of: viewModel.state) { _, _ in
+        .onReceive(viewModel.$state.dropFirst()) { _ in
             viewModel.scheduleAutosave()
+        }
+        .onChange(of: selectedReferencePhoto) { _, newValue in
+            Task {
+                await viewModel.importReferenceImage(from: newValue)
+                selectedReferencePhoto = nil
+            }
         }
         .onDisappear {
             viewModel.saveNow()
@@ -63,6 +135,19 @@ struct ImagePromptEditorView: View {
         .sheet(isPresented: $isPreviewPresented) {
             NavigationStack {
                 MarkdownPreviewView(snapshot: viewModel.currentSnapshot)
+            }
+        }
+        .fileImporter(
+            isPresented: $isReferenceFileImporterPresented,
+            allowedContentTypes: [.image],
+            allowsMultipleSelection: false
+        ) { result in
+            guard case let .success(urls) = result, let url = urls.first else {
+                return
+            }
+
+            Task {
+                await viewModel.importReferenceImage(from: url)
             }
         }
         .alert("保存エラー", isPresented: Binding(

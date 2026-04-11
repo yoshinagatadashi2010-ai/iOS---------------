@@ -13,6 +13,8 @@ final class ImagePromptDetail {
     var environment: String
     var negativePrompt: String
     var notes: String
+    @Attribute(.externalStorage) var referenceImageData: Data?
+    var referenceImageFilename: String?
 
     var project: PromptProject?
 
@@ -26,7 +28,9 @@ final class ImagePromptDetail {
         mood: String = "",
         environment: String = "",
         negativePrompt: String = "",
-        notes: String = ""
+        notes: String = "",
+        referenceImageData: Data? = nil,
+        referenceImageFilename: String? = nil
     ) {
         self.subject = subject
         self.composition = composition
@@ -38,6 +42,8 @@ final class ImagePromptDetail {
         self.environment = environment
         self.negativePrompt = negativePrompt
         self.notes = notes
+        self.referenceImageData = referenceImageData
+        self.referenceImageFilename = referenceImageFilename
     }
 
     convenience init(snapshot: ImagePromptDetailSnapshot) {
@@ -51,7 +57,9 @@ final class ImagePromptDetail {
             mood: snapshot.mood,
             environment: snapshot.environment,
             negativePrompt: snapshot.negativePrompt,
-            notes: snapshot.notes
+            notes: snapshot.notes,
+            referenceImageData: snapshot.referenceImageData,
+            referenceImageFilename: snapshot.referenceImageFilename
         )
     }
 
@@ -66,6 +74,8 @@ final class ImagePromptDetail {
         environment = snapshot.environment
         negativePrompt = snapshot.negativePrompt
         notes = snapshot.notes
+        referenceImageData = snapshot.referenceImageData
+        referenceImageFilename = snapshot.referenceImageFilename
     }
 
     func makeSnapshot() -> ImagePromptDetailSnapshot {
@@ -79,7 +89,9 @@ final class ImagePromptDetail {
             mood: mood,
             environment: environment,
             negativePrompt: negativePrompt,
-            notes: notes
+            notes: notes,
+            referenceImageData: referenceImageData,
+            referenceImageFilename: referenceImageFilename
         )
     }
 }

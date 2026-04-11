@@ -13,9 +13,17 @@ struct ProjectRowView: View {
                         .foregroundStyle(.primary)
                         .lineLimit(2)
 
-                    Text(project.projectType.displayName)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    HStack(spacing: 8) {
+                        Text(project.projectType.displayName)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        if project.imageDetail?.referenceImageData != nil {
+                            Label("参照画像", systemImage: "photo")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                 }
 
                 Spacer(minLength: 12)

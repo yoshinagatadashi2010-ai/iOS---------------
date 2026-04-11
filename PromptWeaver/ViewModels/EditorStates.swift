@@ -38,6 +38,8 @@ struct ImagePromptEditorState: Equatable {
     var environment: String = ""
     var negativePrompt: String = ""
     var notes: String = ""
+    var referenceImageData: Data? = nil
+    var referenceImageFilename: String? = nil
 
     init(defaultLanguage: PromptLanguage) {
         metadata = ProjectMetadataEditorState()
@@ -57,6 +59,8 @@ struct ImagePromptEditorState: Equatable {
         environment = detail.environment
         negativePrompt = detail.negativePrompt
         notes = detail.notes
+        referenceImageData = detail.referenceImageData
+        referenceImageFilename = detail.referenceImageFilename
     }
 
     func makeSnapshot(id: UUID, createdAt: Date) -> PromptProjectSnapshot {
@@ -82,7 +86,9 @@ struct ImagePromptEditorState: Equatable {
                 mood: mood,
                 environment: environment,
                 negativePrompt: negativePrompt,
-                notes: notes
+                notes: notes,
+                referenceImageData: referenceImageData,
+                referenceImageFilename: referenceImageFilename
             ),
             videoDetail: nil
         )
