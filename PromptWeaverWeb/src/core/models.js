@@ -119,6 +119,18 @@ function normalizeReferenceImage(referenceImage) {
   };
 }
 
+function normalizeReferenceImages(referenceImages) {
+  const source = Array.isArray(referenceImages)
+    ? referenceImages
+    : referenceImages
+      ? [referenceImages]
+      : [];
+
+  return source
+    .map(normalizeReferenceImage)
+    .filter(Boolean);
+}
+
 function createEmptyImageDetail() {
   return {
     subject: "",
@@ -131,7 +143,7 @@ function createEmptyImageDetail() {
     environment: "",
     negativePrompt: "",
     notes: "",
-    referenceImage: null
+    referenceImages: []
   };
 }
 
@@ -160,6 +172,7 @@ function createEmptyVideoDetail() {
     aspectRatio: "",
     negativePrompt: "",
     notes: "",
+    referenceImages: [],
     scenes: []
   };
 }
@@ -262,31 +275,40 @@ export function normalizeProject(project) {
     : OUTPUT_FORMATS.MARKDOWN;
 
   if (normalized.projectType === PROJECT_TYPES.IMAGE) {
+    const imageDetail = normalized.imageDetail ?? {};
     normalized.imageDetail = {
       ...createEmptyImageDetail(),
-      ...(normalized.imageDetail ?? {}),
-      referenceImage: normalizeReferenceImage(normalized.imageDetail?.referenceImage)
+      ...imageDetail,
+      referenceImages: normalizeReferenceImages(
+        imageDetail.referenceImages ?? imageDetail.referenceImage
+      )
     };
+    delete normalized.imageDetail.referenceImage;
     normalized.videoDetail = null;
     return normalized;
   }
 
   if (normalized.projectType === PROJECT_TYPES.VIDEO) {
+    const videoDetail = normalized.videoDetail ?? {};
     const scenes = [...(normalized.videoDetail?.scenes ?? [])]
       .sort((left, right) => left.orderIndex - right.orderIndex)
       .map((scene, index) => normalizeVideoScene(scene, index));
 
     normalized.videoDetail = {
       ...createEmptyVideoDetail(),
-      ...(normalized.videoDetail ?? {}),
+      ...videoDetail,
+      referenceImages: normalizeReferenceImages(
+        videoDetail.referenceImages ?? videoDetail.referenceImage
+      ),
       scenes,
-      overallConcept: `${normalized.videoDetail?.overallConcept ?? ""}`,
-      visualStyle: `${normalized.videoDetail?.visualStyle ?? ""}`,
-      pacing: `${normalized.videoDetail?.pacing ?? ""}`,
-      aspectRatio: `${normalized.videoDetail?.aspectRatio ?? ""}`,
-      negativePrompt: `${normalized.videoDetail?.negativePrompt ?? ""}`,
-      notes: `${normalized.videoDetail?.notes ?? ""}`
+      overallConcept: `${videoDetail.overallConcept ?? ""}`,
+      visualStyle: `${videoDetail.visualStyle ?? ""}`,
+      pacing: `${videoDetail.pacing ?? ""}`,
+      aspectRatio: `${videoDetail.aspectRatio ?? ""}`,
+      negativePrompt: `${videoDetail.negativePrompt ?? ""}`,
+      notes: `${videoDetail.notes ?? ""}`
     };
+    delete normalized.videoDetail.referenceImage;
     normalized.imageDetail = null;
     return normalized;
   }

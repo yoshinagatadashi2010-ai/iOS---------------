@@ -154,7 +154,7 @@ export class PromptWeaverStore extends EventTarget {
         environment: "",
         negativePrompt: "",
         notes: "",
-        referenceImage: null,
+        referenceImages: [],
         ...(project.imageDetail ?? {})
       };
       project.videoDetail = null;
@@ -172,6 +172,7 @@ export class PromptWeaverStore extends EventTarget {
         ...project,
         videoDetail: {
           ...(project.videoDetail ?? {}),
+          referenceImages: project.videoDetail?.referenceImages ?? project.videoDetail?.referenceImage ?? [],
           scenes: orderedScenes
         }
       }).videoDetail;

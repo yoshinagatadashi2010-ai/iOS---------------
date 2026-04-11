@@ -373,6 +373,11 @@ a {
   background: #fbfdff;
 }
 
+.reference-image-gallery {
+  display: grid;
+  gap: 12px;
+}
+
 .reference-image-card__preview {
   display: block;
   width: 100%;
@@ -384,7 +389,7 @@ a {
 
 .reference-image-card__meta {
   display: grid;
-  gap: 4px;
+  gap: 8px;
   word-break: break-word;
 }
 
@@ -584,6 +589,10 @@ a {
   .toolbar__inner {
     position: sticky;
     top: 86px;
+  }
+
+  .reference-image-gallery {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
