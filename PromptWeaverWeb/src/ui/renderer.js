@@ -25,6 +25,8 @@ import {
 import { prepareReferenceImage } from "../core/reference-images.js";
 import { navigate, parseHash } from "./router.js";
 
+const MAX_REFERENCE_IMAGES_PER_PROJECT = 6;
+
 const T = {
   home: "\u30db\u30fc\u30e0",
   projects: "\u30d7\u30ed\u30b8\u30a7\u30af\u30c8",
@@ -75,13 +77,14 @@ const T = {
   archived: "\u30a2\u30fc\u30ab\u30a4\u30d6",
   imagePrompt: "\u753b\u50cf\u30d7\u30ed\u30f3\u30d7\u30c8",
   referenceImage: "\u53c2\u7167\u753b\u50cf",
-  referenceImageHint: "\u53c2\u7167\u753b\u50cf\u306f\u30d6\u30e9\u30a6\u30b6\u4fdd\u5b58\u5411\u3051\u306b\u8efd\u91cf\u5316\u3055\u308c\u3001\u30d7\u30ed\u30b8\u30a7\u30af\u30c8\u3068\u4e00\u7dd2\u306b\u4fdd\u5b58\u3055\u308c\u307e\u3059\u3002",
-  referenceImageEmpty: "\u5199\u771f\u30e9\u30a4\u30d6\u30e9\u30ea\u3084\u30d5\u30a1\u30a4\u30eb\u304b\u3089\u53c2\u7167\u753b\u50cf\u30921\u679a\u8ffd\u52a0\u3067\u304d\u307e\u3059\u3002",
-  referenceImageChoose: "\u53c2\u7167\u753b\u50cf\u3092\u9078\u629e",
-  referenceImageReplace: "\u53c2\u7167\u753b\u50cf\u3092\u5909\u66f4",
-  referenceImageRemove: "\u53c2\u7167\u753b\u50cf\u3092\u524a\u9664",
+  referenceImageHint: "\u53c2\u7167\u753b\u50cf\u306f\u30d6\u30e9\u30a6\u30b6\u4fdd\u5b58\u5411\u3051\u306b\u8efd\u91cf\u5316\u3055\u308c\u3001\u30d7\u30ed\u30b8\u30a7\u30af\u30c8\u3068\u4e00\u7dd2\u306b\u4fdd\u5b58\u3055\u308c\u307e\u3059\u3002\u6700\u59276\u679a\u307e\u3067\u8ffd\u52a0\u3067\u304d\u307e\u3059\u3002",
+  referenceImageEmpty: "\u5199\u771f\u30e9\u30a4\u30d6\u30e9\u30ea\u3084\u30d5\u30a1\u30a4\u30eb\u304b\u3089\u53c2\u7167\u753b\u50cf\u3092\u8907\u6570\u679a\u8ffd\u52a0\u3067\u304d\u307e\u3059\u3002",
+  referenceImageChoose: "\u53c2\u7167\u753b\u50cf\u3092\u8ffd\u52a0",
+  referenceImageReplace: "\u53c2\u7167\u753b\u50cf\u3092\u8ffd\u52a0",
+  referenceImageRemove: "\u3053\u306e\u53c2\u7167\u753b\u50cf\u3092\u524a\u9664",
   referenceImageAdded: "\u53c2\u7167\u753b\u50cf\u3092\u8ffd\u52a0\u3057\u307e\u3057\u305f",
   referenceImageRemoved: "\u53c2\u7167\u753b\u50cf\u3092\u524a\u9664\u3057\u307e\u3057\u305f",
+  referenceImageLimitReached: "\u53c2\u7167\u753b\u50cf\u306f1\u30d7\u30ed\u30b8\u30a7\u30af\u30c8\u3042\u305f\u308a6\u679a\u307e\u3067\u3067\u3059",
   negativePrompt: "\u30cd\u30ac\u30c6\u30a3\u30d6\u30d7\u30ed\u30f3\u30d7\u30c8",
   notes: "\u30e1\u30e2"
 };
@@ -146,7 +149,7 @@ function projectTypeBadge(project) {
 }
 
 function hasReferenceImage(project) {
-  return Boolean(project?.imageDetail?.referenceImage?.dataUrl);
+  return getProjectReferenceImages(project).length > 0;
 }
 
 function formatFileSize(value) {
@@ -175,6 +178,27 @@ function describeReferenceImage(referenceImage) {
     parts.push(`${referenceImage.width}×${referenceImage.height}`);
   }
   return parts.join(" ・ ");
+}
+
+function getProjectReferenceImage(project) {
+  return getProjectReferenceImages(project)[0] ?? null;
+}
+
+function getProjectReferenceImages(project) {
+  const source = project?.projectType === PROJECT_TYPES.VIDEO
+    ? project?.videoDetail?.referenceImages ?? project?.videoDetail?.referenceImage
+    : project?.imageDetail?.referenceImages ?? project?.imageDetail?.referenceImage;
+
+  if (!source) {
+    return [];
+  }
+
+  return Array.isArray(source) ? source.filter((item) => item?.dataUrl) : [source].filter((item) => item?.dataUrl);
+}
+
+function referenceImageBadgeText(project) {
+  const count = getProjectReferenceImages(project).length;
+  return count > 1 ? `${T.referenceImage} ${count}` : T.referenceImage;
 }
 
 export class AppRenderer {
@@ -304,7 +328,7 @@ export class AppRenderer {
   renderProjectCard(project) {
     const card = element("article", { className: "project-card" });
     card.append(element("div", { className: "project-card__head" }, [
-      element("div", {}, [element("h3", { className: "project-card__title", text: getDisplayTitle(project) }), element("div", { className: "project-card__meta" }, [projectTypeBadge(project), hasReferenceImage(project) ? element("span", { className: "badge", text: T.referenceImage }) : null, project.favorite ? element("span", { className: "badge badge--accent", text: T.favorite }) : null])]),
+      element("div", {}, [element("h3", { className: "project-card__title", text: getDisplayTitle(project) }), element("div", { className: "project-card__meta" }, [projectTypeBadge(project), hasReferenceImage(project) ? element("span", { className: "badge", text: referenceImageBadgeText(project) }) : null, project.favorite ? element("span", { className: "badge badge--accent", text: T.favorite }) : null])]),
       element("div", { className: "toolbar-inline" }, [element("button", { className: "button", text: T.open, onClick: () => navigate({ name: "editor", projectId: project.id }) }), element("button", { className: "button", text: project.favorite ? "★" : "☆", onClick: () => this.store.toggleFavorite(project.id) })])
     ]));
     if (project.summary.trim()) card.append(element("div", { className: "muted", text: project.summary }));
@@ -325,7 +349,7 @@ export class AppRenderer {
     if (project.projectType === PROJECT_TYPES.IMAGE) {
       formColumn.append(this.renderReferenceImageSection(project), this.renderImageEditorSection(project));
     } else {
-      formColumn.append(this.renderVideoEditorSection(project));
+      formColumn.append(this.renderReferenceImageSection(project), this.renderVideoEditorSection(project));
     }
     grid.append(formColumn, toolbarColumn);
     page.append(grid);
@@ -347,10 +371,13 @@ export class AppRenderer {
   }
 
   renderReferenceImageSection(project) {
-    const referenceImage = project.imageDetail.referenceImage;
+    const referenceImages = getProjectReferenceImages(project);
     const section = element("section", { className: "editor-section" }, [
       element("div", { className: "editor-section__header" }, [
-        element("h2", { className: "panel-title", text: T.referenceImage })
+        element("h2", { className: "panel-title", text: T.referenceImage }),
+        referenceImages.length
+          ? element("span", { className: "badge badge--accent", text: `${referenceImages.length}/${MAX_REFERENCE_IMAGES_PER_PROJECT}` })
+          : null
       ])
     ]);
 
@@ -359,40 +386,52 @@ export class AppRenderer {
       attrs: {
         type: "file",
         accept: "image/*",
+        multiple: "true",
         hidden: "true"
       },
       onChange: async (event) => {
-        const [file] = event.currentTarget.files ?? [];
+        const files = Array.from(event.currentTarget.files ?? []);
         event.currentTarget.value = "";
-        if (!file) {
+        if (!files.length) {
           return;
         }
 
-        await this.handleReferenceImageSelected(project.id, file);
+        await this.handleReferenceImageSelected(project.id, files);
       }
     });
 
-    if (referenceImage?.dataUrl) {
+    if (referenceImages.length) {
       content.append(
-        element("div", { className: "reference-image-card" }, [
-          element("img", {
-            className: "reference-image-card__preview",
-            attrs: {
-              src: referenceImage.dataUrl,
-              alt: referenceImage.name || T.referenceImage,
-              loading: "lazy"
-            }
-          }),
-          element("div", { className: "reference-image-card__meta" }, [
-            element("strong", {
-              text: referenceImage.name || T.referenceImage
-            }),
-            element("div", {
-              className: "muted",
-              text: describeReferenceImage(referenceImage)
-            })
-          ])
-        ])
+        element(
+          "div",
+          { className: "reference-image-gallery" },
+          referenceImages.map((referenceImage, index) =>
+            element("div", { className: "reference-image-card" }, [
+              element("img", {
+                className: "reference-image-card__preview",
+                attrs: {
+                  src: referenceImage.dataUrl,
+                  alt: referenceImage.name || `${T.referenceImage} ${index + 1}`,
+                  loading: "lazy"
+                }
+              }),
+              element("div", { className: "reference-image-card__meta" }, [
+                element("strong", {
+                  text: referenceImage.name || `${T.referenceImage} ${index + 1}`
+                }),
+                element("div", {
+                  className: "muted",
+                  text: describeReferenceImage(referenceImage)
+                }),
+                element("button", {
+                  className: "button button--danger",
+                  text: T.referenceImageRemove,
+                  onClick: () => this.removeReferenceImage(project.id, index)
+                })
+              ])
+            ])
+          )
+        )
       );
     } else {
       content.append(element("div", { className: "empty-state", text: T.referenceImageEmpty }));
@@ -402,16 +441,9 @@ export class AppRenderer {
       element("div", { className: "button-row" }, [
         element("button", {
           className: "button",
-          text: referenceImage?.dataUrl ? T.referenceImageReplace : T.referenceImageChoose,
+          text: referenceImages.length ? T.referenceImageReplace : T.referenceImageChoose,
           onClick: () => pickerInput.click()
-        }),
-        referenceImage?.dataUrl
-          ? element("button", {
-            className: "button button--danger",
-            text: T.referenceImageRemove,
-            onClick: () => this.removeReferenceImage(project.id)
-          })
-          : null
+        })
       ]),
       element("div", { className: "muted", text: T.referenceImageHint }),
       pickerInput
@@ -443,21 +475,60 @@ export class AppRenderer {
     return section;
   }
 
-  async handleReferenceImageSelected(projectId, file) {
+  async handleReferenceImageSelected(projectId, files) {
+    const project = this.store.getProject(projectId);
+    const existingImages = getProjectReferenceImages(project);
+    const remainingSlots = MAX_REFERENCE_IMAGES_PER_PROJECT - existingImages.length;
+
+    if (remainingSlots <= 0) {
+      this.showToast(T.referenceImageLimitReached);
+      return;
+    }
+
+    const acceptedFiles = files.slice(0, remainingSlots);
+    const preparedImages = [];
+
     try {
-      const preparedImage = await prepareReferenceImage(file);
+      for (const file of acceptedFiles) {
+        preparedImages.push(await prepareReferenceImage(file));
+      }
+
       this.store.updateProject(projectId, (draft) => {
-        draft.imageDetail.referenceImage = preparedImage;
+        const nextImages = [
+          ...getProjectReferenceImages(draft),
+          ...preparedImages
+        ];
+
+        if (draft.projectType === PROJECT_TYPES.VIDEO) {
+          draft.videoDetail.referenceImages = nextImages;
+        } else {
+          draft.imageDetail.referenceImages = nextImages;
+        }
       }, { render: true });
-      this.showToast(T.referenceImageAdded);
+
+      if (files.length > acceptedFiles.length) {
+        this.showToast(T.referenceImageLimitReached);
+      } else {
+        this.showToast(
+          preparedImages.length > 1
+            ? `${preparedImages.length}枚の${T.referenceImage}を追加しました`
+            : T.referenceImageAdded
+        );
+      }
     } catch (error) {
       this.showToast(error?.message || "参照画像を追加できませんでした");
     }
   }
 
-  removeReferenceImage(projectId) {
+  removeReferenceImage(projectId, referenceImageIndex) {
     this.store.updateProject(projectId, (draft) => {
-      draft.imageDetail.referenceImage = null;
+      const nextImages = getProjectReferenceImages(draft).filter((_, index) => index !== referenceImageIndex);
+
+      if (draft.projectType === PROJECT_TYPES.VIDEO) {
+        draft.videoDetail.referenceImages = nextImages;
+      } else {
+        draft.imageDetail.referenceImages = nextImages;
+      }
     }, { render: true });
     this.showToast(T.referenceImageRemoved);
   }
